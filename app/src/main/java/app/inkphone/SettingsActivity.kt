@@ -103,8 +103,8 @@ class SettingsActivity : Activity() {
             }
             InkService.ensure(this)
         }
-        switch("Paper tint and grain", prefs.paper) { prefs.paper = it }
-        body("Strength")
+        switch("Paper wash: fades colours in every app", prefs.paper) { prefs.paper = it }
+        body("Strength. Higher fades colours more, with lower contrast. For true black and white, also do section 3.")
         list.addView(SeekBar(this).apply {
             max = 100
             progress = prefs.paperStrength

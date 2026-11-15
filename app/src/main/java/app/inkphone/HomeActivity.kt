@@ -48,6 +48,7 @@ class HomeActivity : Activity() {
     private lateinit var grid: GridView
     private lateinit var search: EditText
     private lateinit var screenTime: TextView
+    private lateinit var greyHint: TextView
     private lateinit var pager: TextView
 
     private val io = Executors.newFixedThreadPool(2)
@@ -92,6 +93,8 @@ class HomeActivity : Activity() {
         }
         refresh()
         updateScreenTime()
+        greyHint.visibility =
+            if (SystemInk.grayscaleState(this) == true || prefs.greyHintDismissed) View.GONE else View.VISIBLE
         InkService.ensure(this)
     }
 
@@ -143,6 +146,23 @@ class HomeActivity : Activity() {
             setOnClickListener { openSettings() }
         }
         root.addView(screenTime)
+
+        greyHint = TextView(this).apply {
+            text = "Apps still open in colour. Tap to make the whole phone black and white (hold to hide this)."
+            typeface = serif
+            setTextColor(getColor(R.color.paper))
+            setBackgroundColor(ink)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            visibility = View.GONE
+            setOnClickListener { openSettings() }
+            setOnLongClickListener {
+                prefs.greyHintDismissed = true
+                visibility = View.GONE
+                true
+            }
+        }
+        root.addView(greyHint)
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

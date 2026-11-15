@@ -253,8 +253,10 @@ private class InkOverlay(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         if (paper && strength > 0f) {
-            // Warm, slightly grey wash: knocks back pure whites and pure blacks like a reflective panel.
-            canvas.drawColor(Color.argb((strength * 80).toInt(), 0xD9, 0xCF, 0xB6))
+            // Paper-grey wash. Mixing every pixel towards one grey fades colours and pulls
+            // pure white and pure black together, like a reflective panel. At full strength
+            // (with the 80% window cap) about two thirds of the colour is gone.
+            canvas.drawColor(Color.argb((strength * 204).toInt(), 0xC9, 0xC5, 0xB8))
             grain.alpha = (strength * 255).toInt()
             canvas.drawPaint(grain)
         }

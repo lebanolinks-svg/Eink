@@ -21,8 +21,13 @@ class Prefs(context: Context) {
 
     /** 0..100 */
     var paperStrength: Int
-        get() = sp.getInt(PAPER_STRENGTH, 40)
+        get() = sp.getInt(PAPER_STRENGTH, 55)
         set(v) = sp.edit().putInt(PAPER_STRENGTH, v).apply()
+
+    /** The user waved away the "colours are still on" hint on the home screen. */
+    var greyHintDismissed: Boolean
+        get() = sp.getBoolean(GREY_HINT_DISMISSED, false)
+        set(v) = sp.edit().putBoolean(GREY_HINT_DISMISSED, v).apply()
 
     var flash: Boolean
         get() = sp.getBoolean(FLASH, true)
@@ -45,6 +50,7 @@ class Prefs(context: Context) {
         const val LAYER_ON = "layer_on"
         const val PAPER = "paper"
         const val PAPER_STRENGTH = "paper_strength"
+        const val GREY_HINT_DISMISSED = "grey_hint_dismissed"
         const val FLASH = "flash"
         const val LOW_REFRESH = "low_refresh"
         const val PINNED = "pinned"
