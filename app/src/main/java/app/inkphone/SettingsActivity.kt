@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
@@ -26,6 +27,7 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var list: LinearLayout
     private val ink by lazy { getColor(R.color.ink) }
+    private var showAdvanced = false
     private val adbCommand by lazy { "adb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS" }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -120,33 +122,61 @@ class SettingsActivity : Activity() {
 
         // 3 — system
         section("3 · Black-and-white and no animations (all apps)")
-        if (SystemInk.canWrite(this)) {
-            switch("Greyscale display", SystemInk.isGrayscale(this)) { on -> guarded { SystemInk.setGrayscale(this, on) } }
-            switch("Remove animations", SystemInk.animationsOff(this)) { off -> guarded { SystemInk.setAnimationsOff(this, off) } }
-        } else {
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        val canWrite = SystemInk.canWrite(this)
+        if (!canWrite) {
+            body("Android keeps these two switches in its own settings. Set each one once and come back; a tick appears here when it is done.")
+        }
+
+        val grey = SystemInk.grayscaleState(this)
+        step(if (grey == true) "✓  Greyscale is on" else "○  Greyscale")
+        if (canWrite) {
+            switch("Greyscale display", grey == true) { on -> guarded { SystemInk.setGrayscale(this, on) } }
+        } else if (grey != true) {
             body(
-                "Android only lets an app switch these after a one-time permission given from a computer. " +
-                    "Connect the phone with USB debugging on and run:"
+                if (samsung) "1. Tap the button below.\n2. Open Vision enhancements → Colour correction.\n3. Turn it on and choose Greyscale."
+                else "1. Tap the button below.\n2. Turn on “Use colour correction”.\n3. Choose Greyscale."
             )
-            list.addView(TextView(this).apply {
-                text = adbCommand
-                typeface = Typeface.MONOSPACE
-                setTextColor(ink)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTextIsSelectable(true)
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                setBackgroundColor(0x141C1C1C)
-            })
-            button("Copy command") {
-                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("adb", adbCommand))
-                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
-            }
+            button("Open colour settings") { openFirst(COLOUR_CORRECTION, Settings.ACTION_ACCESSIBILITY_SETTINGS) }
+        }
+
+        val still = SystemInk.animationsOff(this)
+        step(if (still) "✓  Animations are off" else "○  Animations")
+        if (canWrite) {
+            switch("Remove animations", still) { off -> guarded { SystemInk.setAnimationsOff(this, off) } }
+        } else if (!still) {
             body(
-                "No computer? Set them by hand instead: Accessibility → Colour correction → Greyscale, " +
-                    "and Accessibility → Remove animations."
+                if (samsung) "1. Tap the button below.\n2. Open Vision enhancements.\n3. Turn on Reduce animations (called Remove animations on older phones)."
+                else "1. Tap the button below.\n2. Open Colour and motion.\n3. Turn on Remove animations."
             )
             button("Open Accessibility settings") { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) }
+        }
+
+        if (!canWrite) {
+            button(if (showAdvanced) "Hide advanced" else "Advanced: switch these from inside InkPhone") {
+                showAdvanced = !showAdvanced
+                rebuild()
+            }
+            if (showAdvanced) {
+                body(
+                    "Optional, for technical users. With a one-time permission given from a computer, InkPhone can flip both switches itself. " +
+                        "Connect the phone with USB debugging on and run:"
+                )
+                list.addView(TextView(this).apply {
+                    text = adbCommand
+                    typeface = Typeface.MONOSPACE
+                    setTextColor(ink)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setTextIsSelectable(true)
+                    setPadding(dp(10), dp(10), dp(10), dp(10))
+                    setBackgroundColor(0x141C1C1C)
+                })
+                button("Copy command") {
+                    (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                        .setPrimaryClip(ClipData.newPlainText("adb", adbCommand))
+                    Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         // 4 — screen time
@@ -164,6 +194,14 @@ class SettingsActivity : Activity() {
         return packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
     }
 
+    /** Opens the first of these settings screens that exists on this phone. */
+    private fun openFirst(vararg actions: String) {
+        for (action in actions) {
+            if (runCatching { startActivity(Intent(action)) }.isSuccess) return
+        }
+        open(Settings.ACTION_SETTINGS)
+    }
+
     private fun open(action: String) {
         runCatching { startActivity(Intent(action)) }
             .onFailure { runCatching { startActivity(Intent(Settings.ACTION_SETTINGS)) } }
@@ -176,6 +214,11 @@ class SettingsActivity : Activity() {
     }
 
     // ---- small view helpers ------------------------------------------------
+
+    private companion object {
+        /** Stock Android's colour correction screen; absent on some brands. */
+        const val COLOUR_CORRECTION = "com.android.settings.ACCESSIBILITY_COLOR_SPACE_SETTINGS"
+    }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -200,6 +243,13 @@ class SettingsActivity : Activity() {
             setPadding(0, dp(12), 0, dp(2))
         })
     }
+
+    private fun step(text: String) = list.addView(TextView(this).apply {
+        this.text = text
+        styleText(this, 17f)
+        setTypeface(Typeface.SERIF, Typeface.BOLD)
+        setPadding(0, dp(16), 0, 0)
+    })
 
     private fun body(text: String) = list.addView(TextView(this).apply {
         this.text = text

@@ -8,7 +8,7 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 |---|---|---|
 | **Home screen** | Paper-coloured launcher with a serif clock, today's screen time, and an app grid that turns pages like an e-reader instead of scrolling. Icons shown as **Doodle** (each app's real icon redrawn as a pen sketch), **Ink** (high-contrast grey) or **Original**. Long-press an app to pin, hide or open its info. | Set InkPhone as the home app |
 | **Paper screen layer** | Over every app: a warm paper tint with grain, a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | "Display over other apps" permission (flash also needs usage access) |
-| **Greyscale + no animations** | The whole phone in black and white, with window and transition animations removed. | One ADB command (or set by hand) |
+| **Greyscale + no animations** | The whole phone in black and white, with window and transition animations removed. | Two switches in Android's Accessibility settings; the app guides you there and ticks each when done |
 | **Screen time** | "On the phone today: 1h 20m" on the home screen. | Usage access |
 
 While the layer is on, Android shows a small permanent "Paper screen layer is on" notification; that is what keeps the layer alive.
@@ -20,13 +20,13 @@ The screen layer is a see-through overlay that never receives touches. The app u
 1. Copy `app-debug.apk` to the phone and open it (allow "install unknown apps" when asked).
 2. Open **InkPhone** and follow the four sections top to bottom.
 3. If Android greys out "display over other apps" for a sideloaded app: **App info → ⋮ → Allow restricted settings**, then try again.
-4. For the greyscale and animation switches, connect the phone to a computer once with USB debugging on:
+4. For greyscale and animations, section 3 of the app opens the right Android settings screen and shows a tick once each is on. No computer needed.
 
-   ```
-   adb shell pm grant app.inkphone android.permission.WRITE_SECURE_SETTINGS
-   ```
+Technical users can instead let InkPhone flip both switches itself by granting a one-time permission from a computer with USB debugging on:
 
-   Without a computer, set the same two things by hand: *Accessibility → Colour correction → Greyscale* and *Accessibility → Remove animations*.
+```
+adb shell pm grant app.inkphone android.permission.WRITE_SECURE_SETTINGS
+```
 
 ## Limits
 

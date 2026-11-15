@@ -24,11 +24,22 @@ object SystemInk {
     fun canWrite(c: Context): Boolean =
         c.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
 
-    fun isGrayscale(c: Context): Boolean {
+    /**
+     * True/false when the system greyscale state can be read, null when this phone hides it.
+     * Covers stock Android's colour correction and Samsung's own greyscale switch.
+     */
+    fun grayscaleState(c: Context): Boolean? {
         val cr = c.contentResolver
-        return Settings.Secure.getInt(cr, DALTONIZER_ENABLED, 0) == 1 &&
-            Settings.Secure.getInt(cr, DALTONIZER, -1) == MONOCHROME
+        val stock = runCatching {
+            Settings.Secure.getInt(cr, DALTONIZER_ENABLED, 0) == 1 &&
+                Settings.Secure.getInt(cr, DALTONIZER, -1) == MONOCHROME
+        }.getOrNull()
+        val samsung = runCatching { Settings.System.getInt(cr, "greyscale_mode", 0) == 1 }.getOrDefault(false) ||
+            runCatching { Settings.Secure.getInt(cr, "greyscale_mode", 0) == 1 }.getOrDefault(false)
+        return if (samsung) true else stock
     }
+
+    fun isGrayscale(c: Context): Boolean = grayscaleState(c) == true
 
     fun setGrayscale(c: Context, on: Boolean) {
         val cr = c.contentResolver
