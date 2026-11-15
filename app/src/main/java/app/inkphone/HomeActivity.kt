@@ -172,6 +172,21 @@ class HomeActivity : Activity() {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
     }
 
+    /** A clearly visible button: a pen-drawn pill, solid ink for the main one. */
+    private fun pill(label: String, filled: Boolean, onClick: () -> Unit) = script(label, 24f).apply {
+        gravity = Gravity.CENTER
+        setTextColor(if (filled) getColor(R.color.paper) else ink)
+        background = SketchDrawable(resources.displayMetrics.density, if (filled) ink else 0xFFFBF9F3.toInt(), ink, 14f, wobble = 0.7f)
+        setPadding(dp(16), dp(9), dp(16), dp(10))
+        minWidth = dp(72)
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { onClick() }
+    }
+
+    private fun pillParams() =
+        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) }
+
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -268,17 +283,13 @@ class HomeActivity : Activity() {
             bar.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         }
         if (prefs.showGreyButton) {
-            greyButton = script("", 22f).apply {
-                setPadding(dp(12), dp(8), dp(4), dp(8))
-                setOnClickListener { toggleGrey() }
-            }
-            bar.addView(greyButton)
+            greyButton = pill("", filled = false) { toggleGrey() }
+            bar.addView(greyButton, pillParams())
         }
-        bar.addView(script("menu", 22f).apply {
-            setPadding(dp(14), dp(8), dp(6), dp(8))
-            setOnClickListener { openSettings() }
+        bar.addView(pill("menu", filled = true) { openSettings() }, pillParams())
+        root.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(6)
         })
-        root.addView(bar)
         root.addView(View(this).apply { setBackgroundColor(ink) },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)))
 
@@ -312,9 +323,9 @@ class HomeActivity : Activity() {
         grid.setOnTouchListener { _, e -> swipe.onTouchEvent(e); false }
         root.addView(grid, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        pager = script("", 22f).apply {
+        pager = script("", 28f).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, dp(8))
+            setPadding(0, dp(8), 0, dp(10))
             // Tap the left or right half to turn the page.
             setOnTouchListener { v, e ->
                 if (e.action == MotionEvent.ACTION_UP) turnPage(if (e.x > v.width / 2) 1 else -1)
@@ -346,7 +357,7 @@ class HomeActivity : Activity() {
             .sortedWith(compareBy<App> { it.key !in pinned }.thenBy { it.label.lowercase() })
         page = page.coerceIn(0, pageCount - 1)
         appAdapter.notifyDataSetChanged()
-        pager.text = if (pageCount > 1) "‹     ${page + 1} / $pageCount     ›" else ""
+        pager.text = if (pageCount > 1) "◀      ${page + 1} / $pageCount      ▶" else ""
     }
 
     // ---- blocks -------------------------------------------------------------
