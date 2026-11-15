@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">InkPhone</string>
+    <string name="home_name">InkPhone Home</string>
+    <string name="service_name">InkPhone screen layer</string>
+    <string name="service_description">Draws a paper-like layer over the screen and an e-ink style refresh flash when you switch screens. It does not read screen content and collects no data.</string>
+</resources>
