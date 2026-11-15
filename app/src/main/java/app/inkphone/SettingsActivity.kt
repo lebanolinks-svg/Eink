@@ -292,7 +292,57 @@ class SettingsActivity : Activity() {
             )
         }
         card.addView(row)
-        card.addView(note("Widgets: InkPhone also adds “Screen time” and “Most used apps” to your phone's widget list, for any home screen."))
+
+        card.addView(divider())
+        card.addView(script("widgets from other apps", 23f))
+        card.addView(note("Weather, calendar, music: put any widget on the paper home screen, above the search bar."))
+        val manager = android.appwidget.AppWidgetManager.getInstance(this)
+        val placed = prefs.widgets
+        for ((id, height) in placed) {
+            val info = runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
+            val name = info?.loadLabel(packageManager) ?: "Widget no longer available"
+            card.addView(body("▤  $name  ·  ${widgetSizeName(height)}").apply {
+                background = SketchDrawable(density, 0, 0x551C1C1C, 10f, wobble = 0.6f)
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                layoutParams = spaced(10)
+                setOnClickListener { editWidget(id, name) }
+            })
+        }
+        if (placed.isNotEmpty()) card.addView(note("Tap a widget to resize, move or remove it."))
+        card.addView(button("add a widget", primary = false) {
+            startActivity(Intent(this, HomeActivity::class.java).putExtra(HomeActivity.EXTRA_ADD_WIDGET, true))
+        })
+        card.addView(switch("Show widgets in black and white", prefs.widgetsGrey) { prefs.widgetsGrey = it })
+        card.addView(note("InkPhone's own “Screen time” and “Most used apps” widgets are in your phone's widget list too, for any home screen."))
+    }
+
+    private fun widgetSizeName(heightDp: Int) = when {
+        heightDp <= 110 -> "small"
+        heightDp <= 180 -> "medium"
+        heightDp <= 260 -> "large"
+        else -> "extra large"
+    }
+
+    private fun editWidget(id: Int, name: String) {
+        val sizes = listOf("Small" to 100, "Medium" to 160, "Large" to 240, "Extra large" to 340)
+        val items = sizes.map { it.first } + listOf("Move up", "Move down", "Remove")
+        android.app.AlertDialog.Builder(this)
+            .setTitle(name)
+            .setItems(items.toTypedArray()) { _, which ->
+                val list = prefs.widgets.toMutableList()
+                val at = list.indexOfFirst { it.first == id }
+                if (at >= 0) {
+                    when {
+                        which < sizes.size -> list[at] = id to sizes[which].second
+                        which == sizes.size && at > 0 -> list.add(at - 1, list.removeAt(at))
+                        which == sizes.size + 1 && at < list.size - 1 -> list.add(at + 1, list.removeAt(at))
+                        which == sizes.size + 2 -> list.removeAt(at)
+                    }
+                    prefs.widgets = list
+                }
+                rebuild()
+            }
+            .show()
     }
 
     // ---- 3 · App limits ---------------------------------------------------------------

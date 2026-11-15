@@ -10,6 +10,7 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 | **E-ink launcher** | Paper home screen with an app grid that turns pages like an e-reader. Icons as **Doodle** (each app's real icon redrawn as a pen sketch), **Grey** or **As is**. Long-press an app to pin, hide, limit or open its info. | Set InkPhone as the home app |
 | **Build your home screen** | Switch each block on or off: clock (serif or handwritten), date, screen time, most used apps, search, grey button, app names. Choose 3 to 6 icons per row. | — |
 | **App limits** | Minutes per day for any app. When they run out the app shows a "time's up" page with a way home and a 5-minute extension. | Usage access; "display over other apps" to lock from inside the app |
+| **Widgets from other apps** | Put any widget (weather, calendar, music) on the paper home screen, shown in black and white if you like. Resize, reorder or remove them from the menu. | Android asks once to let InkPhone show widgets |
 | **Widgets** | "Screen time" and "Most used apps" widgets for any launcher. | Usage access |
 | **Paper wash** | Optional paper-grey film with grain over every app, a refresh flash on screen changes, and the display's slowest refresh rate. Off by default. | "Display over other apps" and usage access |
 

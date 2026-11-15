@@ -67,10 +67,26 @@ class Prefs(context: Context) {
         get() = sp.getInt("columns", 4)
         set(v) = sp.edit().putInt("columns", v).apply()
 
+    /** Widgets from other apps placed on the home screen, as (widget id, height in dp), top to bottom. */
+    var widgets: List<Pair<Int, Int>>
+        get() = sp.getString("widgets", "")!!.split(',').mapNotNull { entry ->
+            val parts = entry.split(':')
+            val id = parts.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+            id to (parts.getOrNull(1)?.toIntOrNull() ?: 150)
+        }
+        set(v) = sp.edit().putString("widgets", v.joinToString(",") { "${it.first}:${it.second}" }).apply()
+
+    /** Draw other apps' widgets in black and white so they match the page. */
+    var widgetsGrey: Boolean
+        get() = sp.getBoolean("widgets_grey", true)
+        set(v) = sp.edit().putBoolean("widgets_grey", v).apply()
+
     /** Everything that changes how the home screen is built, as one comparable value. */
     val homeLayout: String
-        get() = listOf(showClock, handClock, showDate, showScreenTime, showMostUsed, showSearch, showGreyButton, showLabels, columns)
-            .joinToString()
+        get() = listOf(
+            showClock, handClock, showDate, showScreenTime, showMostUsed, showSearch, showGreyButton, showLabels, columns,
+            sp.getString("widgets", ""), widgetsGrey,
+        ).joinToString()
 
     // ---- daily app limits ----
     /** Minutes allowed per day for this package; 0 means no limit. */

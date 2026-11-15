@@ -2,6 +2,12 @@ package app.inkphone
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -70,6 +76,14 @@ class HomeActivity : Activity() {
     private val serif = Typeface.SERIF
     private val hand: Typeface by lazy { runCatching { resources.getFont(R.font.caveat) }.getOrDefault(serif) }
 
+    // widgets from other apps
+    private val widgetHost by lazy { AppWidgetHost(applicationContext, WIDGET_HOST_ID) }
+    private val widgetManager by lazy { AppWidgetManager.getInstance(this) }
+    private var pendingWidget = -1
+    private val greyLayer = Paint().apply {
+        colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
+    }
+
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) = loadApps()
     }
@@ -86,6 +100,18 @@ class HomeActivity : Activity() {
             addDataScheme("package")
         })
         loadApps()
+        if (intent?.getBooleanExtra(EXTRA_ADD_WIDGET, false) == true) pickWidget()
+    }
+
+    // The host only delivers widget updates while it is listening.
+    override fun onStart() {
+        super.onStart()
+        runCatching { widgetHost.startListening() }
+    }
+
+    override fun onStop() {
+        runCatching { widgetHost.stopListening() }
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -101,6 +127,7 @@ class HomeActivity : Activity() {
             icons.evictAll()
         }
         if (prefs.homeLayout != layout) rebuildUi()
+        forgetRemovedWidgets()
         refresh()
         updateUsage()
         updateGrey()
@@ -111,6 +138,10 @@ class HomeActivity : Activity() {
     /** Home pressed while already home: back to the first page. */
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+        if (intent?.getBooleanExtra(EXTRA_ADD_WIDGET, false) == true) {
+            pickWidget()
+            return
+        }
         search?.setText("")
         page = 0
         refresh()
@@ -206,6 +237,8 @@ class HomeActivity : Activity() {
                 bottomMargin = dp(6)
             })
         }
+
+        addWidgets(root)
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -393,6 +426,117 @@ class HomeActivity : Activity() {
         }
     }
 
+    // ---- widgets from other apps -------------------------------------------
+
+    /** Stacks the saved widgets, full width, above the search bar. */
+    private fun addWidgets(root: LinearLayout) {
+        val density = resources.displayMetrics.density
+        val widthDp = (resources.displayMetrics.widthPixels / density).toInt() - 40
+        for ((id, heightDp) in prefs.widgets) {
+            val info = runCatching { widgetManager.getAppWidgetInfo(id) }.getOrNull() ?: continue
+            val view = runCatching { widgetHost.createView(this, id, info) }.getOrNull() ?: continue
+            runCatching {
+                widgetManager.updateAppWidgetOptions(id, Bundle().apply {
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
+                })
+            }
+            if (prefs.widgetsGrey) view.setLayerType(View.LAYER_TYPE_HARDWARE, greyLayer)
+            root.addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp)).apply {
+                topMargin = dp(6)
+                bottomMargin = dp(2)
+            })
+        }
+    }
+
+    private fun pickWidget() {
+        val providers = runCatching { widgetManager.installedProviders }.getOrDefault(emptyList())
+            .map { it to "${it.loadLabel(packageManager)}  ·  ${appName(it.provider.packageName)}" }
+            .sortedBy { it.second.lowercase() }
+        if (providers.isEmpty()) {
+            Toast.makeText(this, "No widgets found on this phone", Toast.LENGTH_LONG).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Add which widget?")
+            .setItems(providers.map { it.second }.toTypedArray()) { _, which -> addWidget(providers[which].first) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun appName(pkg: String): String = runCatching {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    }.getOrDefault(pkg)
+
+    /** Step 1: reserve an id and get Android's permission to show this widget here. */
+    private fun addWidget(info: AppWidgetProviderInfo) {
+        val id = runCatching { widgetHost.allocateAppWidgetId() }.getOrNull() ?: return
+        pendingWidget = id
+        val allowed = runCatching { widgetManager.bindAppWidgetIdIfAllowed(id, info.provider) }.getOrDefault(false)
+        if (allowed) {
+            configureWidget(id)
+        } else {
+            val ask = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
+            if (runCatching { startActivityForResult(ask, REQUEST_BIND) }.isFailure) dropWidget(id)
+        }
+    }
+
+    /** Step 2: some widgets want to be set up (choose a city, an account) before they show. */
+    private fun configureWidget(id: Int) {
+        val info = runCatching { widgetManager.getAppWidgetInfo(id) }.getOrNull()
+        if (info == null) {
+            dropWidget(id)
+            return
+        }
+        val started = info.configure != null && runCatching {
+            widgetHost.startAppWidgetConfigureActivityForResult(this, id, 0, REQUEST_CONFIGURE, null)
+        }.isSuccess
+        if (!started) keepWidget(id)
+    }
+
+    /** Step 3: save it and show it. */
+    private fun keepWidget(id: Int) {
+        pendingWidget = -1
+        val info = runCatching { widgetManager.getAppWidgetInfo(id) }.getOrNull()
+        val density = resources.displayMetrics.density
+        val heightDp = ((info?.minHeight ?: 0) / density).toInt().coerceIn(90, 260)
+        prefs.widgets = prefs.widgets.filter { it.first != id } + (id to heightDp)
+        rebuildUi()
+        refresh()
+        updateUsage()
+        updateGrey()
+    }
+
+    private fun dropWidget(id: Int) {
+        pendingWidget = -1
+        runCatching { widgetHost.deleteAppWidgetId(id) }
+    }
+
+    /** Frees widgets the user removed in the menu. */
+    private fun forgetRemovedWidgets() {
+        val keep = prefs.widgets.map { it.first }.toSet()
+        runCatching {
+            widgetHost.appWidgetIds.filter { it !in keep && it != pendingWidget }.forEach { widgetHost.deleteAppWidgetId(it) }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_BIND && requestCode != REQUEST_CONFIGURE) return
+        val id = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingWidget) ?: pendingWidget
+        if (id == -1) return
+        when {
+            resultCode != RESULT_OK -> dropWidget(id)
+            requestCode == REQUEST_BIND -> configureWidget(id)
+            else -> keepWidget(id)
+        }
+    }
+
     // ---- apps -------------------------------------------------------------
 
     private fun loadApps() {
@@ -513,5 +657,13 @@ class HomeActivity : Activity() {
             }
             return cell
         }
+    }
+
+    companion object {
+        /** Start the home screen with this extra to open the widget picker. */
+        const val EXTRA_ADD_WIDGET = "add_widget"
+        private const val WIDGET_HOST_ID = 1024
+        private const val REQUEST_BIND = 71
+        private const val REQUEST_CONFIGURE = 72
     }
 }
