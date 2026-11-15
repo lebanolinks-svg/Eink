@@ -18,11 +18,12 @@ The screen layer is a see-through overlay that never receives touches. The app u
 ## Install
 
 1. Copy `app-debug.apk` to the phone and open it (allow "install unknown apps" when asked).
-2. Open **InkPhone** and follow the four sections top to bottom.
-3. If Android greys out "display over other apps" for a sideloaded app: **App info → ⋮ → Allow restricted settings**, then try again.
-4. For greyscale and animations, section 3 of the app opens the right Android settings screen and shows a tick once each is on. No computer needed.
+2. Open **InkPhone**. It shows three cards; each works on its own:
+   - **Grey phone** — every app in black and white. Three guided taps in Android's colour settings.
+   - **E-ink home screen** — the paper launcher, with Doodle, Grey or Original icons.
+   - **Advanced** — the paper wash over apps, screen time, and one-tap control for technical users.
 
-Technical users can instead let InkPhone flip both switches itself by granting a one-time permission from a computer with USB debugging on:
+One-tap Grey phone needs a one-time permission from a computer with USB debugging on:
 
 ```
 adb shell pm grant app.inkphone android.permission.WRITE_SECURE_SETTINGS

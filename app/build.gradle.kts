@@ -11,8 +11,8 @@ android {
         applicationId = "app.inkphone"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     // A fixed test key kept in the repo so every build (local or CI) installs
