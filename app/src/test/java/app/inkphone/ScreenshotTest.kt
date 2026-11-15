@@ -20,13 +20,19 @@ class ScreenshotTest {
     private fun shoot(activity: Activity, name: String) {
         val root: View = activity.window.decorView
         val w = View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY)
-        root.measure(w, View.MeasureSpec.makeMeasureSpec(6300, View.MeasureSpec.EXACTLY))
-        root.layout(0, 0, 1080, 6300)
-        val bmp = Bitmap.createBitmap(1080, 6300, Bitmap.Config.ARGB_8888)
+        root.measure(w, View.MeasureSpec.makeMeasureSpec(9000, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, 1080, 9000)
+        val bmp = Bitmap.createBitmap(1080, 9000, Bitmap.Config.ARGB_8888)
         root.draw(Canvas(bmp))
         val out = File("build/screens/$name.png")
         out.parentFile.mkdirs()
         out.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test
+    fun home() {
+        val activity = Robolectric.buildActivity(HomeActivity::class.java).setup().get()
+        shoot(activity, "home")
     }
 
     @Test

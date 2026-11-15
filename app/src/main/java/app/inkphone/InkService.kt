@@ -54,12 +54,23 @@ class InkService : Service() {
     private var sensitive = false
     private var pausedUntil = 0L
 
+    // app limits: which app is in front, how long it had been used today when it came
+    // to the front, and when that was
+    private var currentPkg: String? = null
+    private var baseUsedMs = 0L
+    private var sinceMs = 0L
+    private var lockView: View? = null
+    private var lockedPkg: String? = null
+
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> apply() }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             handler.removeCallbacks(poll)
-            if (intent?.action == Intent.ACTION_SCREEN_ON) handler.post(poll)
+            if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                restartClock() // time with the screen off does not count
+                handler.post(poll)
+            }
         }
     }
 
@@ -70,9 +81,20 @@ class InkService : Service() {
             if (screen != null && screen != lastScreen) {
                 changed = lastScreen != null
                 lastScreen = screen
-                sensitive = isSensitive(screen.substringBefore('/'))
+                val pkg = screen.substringBefore('/')
+                if (pkg != currentPkg) {
+                    currentPkg = pkg
+                    sensitive = isSensitive(pkg)
+                    restartClock()
+                    Widgets.refresh(this@InkService)
+                }
             }
-            val show = !sensitive && SystemClock.uptimeMillis() >= pausedUntil
+            val now = SystemClock.uptimeMillis()
+            val pkg = currentPkg
+            val limit = if (pkg != null && pkg != packageName) prefs.limit(pkg) else 0
+            val over = limit > 0 && baseUsedMs + (now - sinceMs) >= (limit + prefs.bonus(pkg!!)) * 60_000L
+            setLocked(if (over) pkg else null)
+            val show = prefs.layerOn && !over && !sensitive && now >= pausedUntil
             setAttached(show)
             if (show && changed && prefs.flash) flash()
             handler.postDelayed(this, POLL_MS)
@@ -124,6 +146,33 @@ class InkService : Service() {
         return START_STICKY
     }
 
+    private fun restartClock() {
+        sinceMs = SystemClock.uptimeMillis()
+        val pkg = currentPkg
+        baseUsedMs = if (pkg == null) 0L else runCatching { ScreenTime.perApp(this)[pkg] ?: 0L }.getOrDefault(0L)
+    }
+
+    /** Covers the app with a "time's up" page, or takes that page away. */
+    private fun setLocked(pkg: String?) {
+        if (pkg == lockedPkg) return
+        lockView?.let { runCatching { windowManager().removeView(it) } }
+        lockView = null
+        lockedPkg = null
+        if (pkg == null) return
+        val view = LockScreen.build(this, prefs, pkg) { setLocked(null) }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.OPAQUE,
+        )
+        if (runCatching { windowManager().addView(view, lp) }.isSuccess) {
+            lockView = view
+            lockedPkg = pkg
+        }
+    }
+
     private fun windowManager() = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     /** Puts the wash on screen or takes it off entirely; a hidden-but-present window would still block taps. */
@@ -141,7 +190,7 @@ class InkService : Service() {
     private fun startInForeground() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Paper wash", NotificationManager.IMPORTANCE_MIN)
+            NotificationChannel(CHANNEL, "App limits and paper wash", NotificationManager.IMPORTANCE_MIN)
         )
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, SettingsActivity::class.java), PendingIntent.FLAG_IMMUTABLE
@@ -151,10 +200,10 @@ class InkService : Service() {
         )
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_ink)
-            .setContentTitle("Paper wash is on")
-            .setContentText("If a screen will not respond to taps, pause it here")
+            .setContentTitle("InkPhone is on")
+            .setContentText("Keeping app limits and the paper wash. Pause the wash here if a screen will not take taps.")
             .setContentIntent(open)
-            .addAction(Notification.Action.Builder(null as Icon?, "Pause 5 minutes", pause).build())
+            .addAction(Notification.Action.Builder(null as Icon?, "Pause wash 5 minutes", pause).build())
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -166,7 +215,7 @@ class InkService : Service() {
 
     private fun apply() {
         val view = overlay ?: return
-        if (!prefs.layerOn) {
+        if (!prefs.layerOn && prefs.limits().isEmpty()) {
             stopSelf()
             return
         }
@@ -219,6 +268,7 @@ class InkService : Service() {
         running = false
         handler.removeCallbacksAndMessages(null)
         if (overlay != null) {
+            setLocked(null)
             setAttached(false)
             overlay = null
             prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener)
@@ -263,13 +313,70 @@ class InkService : Service() {
 
         /** Starts the wash if the user wants it and both permissions are there. Safe to call often. */
         fun ensure(context: Context) {
-            if (running || !Prefs(context).layerOn) return
+            val prefs = Prefs(context)
+            if (running || (!prefs.layerOn && prefs.limits().isEmpty())) return
             if (!Settings.canDrawOverlays(context) || !ScreenTime.hasAccess(context)) return
             runCatching { context.startForegroundService(Intent(context, InkService::class.java)) }
         }
 
         fun stop(context: Context) {
             context.stopService(Intent(context, InkService::class.java))
+        }
+    }
+}
+
+/** The page shown over an app whose daily limit has run out. */
+private object LockScreen {
+    fun build(c: Context, prefs: Prefs, pkg: String, dismiss: () -> Unit): View {
+        val d = c.resources.displayMetrics.density
+        fun dp(v: Int) = (v * d).toInt()
+        val ink = c.getColor(R.color.ink)
+        val paper = c.getColor(R.color.paper)
+        val hand = runCatching { c.resources.getFont(R.font.caveat) }.getOrDefault(android.graphics.Typeface.SERIF)
+        val name = runCatching {
+            c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString()
+        }.getOrDefault("this app")
+
+        fun text(value: String, sp: Float, face: android.graphics.Typeface) = android.widget.TextView(c).apply {
+            text = value
+            typeface = face
+            gravity = android.view.Gravity.CENTER
+            setTextColor(ink)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp)
+        }
+        fun button(label: String, primary: Boolean, onClick: () -> Unit) = text(label, 26f, hand).apply {
+            setTextColor(if (primary) paper else ink)
+            background = SketchDrawable(d, if (primary) ink else 0, ink, 14f)
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            setOnClickListener { onClick() }
+        }
+
+        return android.widget.LinearLayout(c).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(paper)
+            setPadding(dp(32), dp(32), dp(32), dp(32))
+            isClickable = true // swallow taps so the app underneath cannot be used
+            addView(android.widget.ImageView(c).apply { setImageResource(R.drawable.ic_limit) },
+                android.widget.LinearLayout.LayoutParams(dp(96), dp(96)))
+            addView(text("time's up", 60f, hand))
+            addView(text("You gave $name ${Limits.label(prefs.limit(pkg)).lowercase()}. That is used up for today.", 17f,
+                android.graphics.Typeface.SERIF).apply { setPadding(0, dp(8), 0, dp(28)) })
+            val wide = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            addView(button("back to home", primary = true) {
+                runCatching {
+                    c.startActivity(
+                        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+                dismiss()
+            }, wide)
+            addView(button("${Limits.BONUS_MINUTES} more minutes", primary = false) {
+                prefs.addBonus(pkg, Limits.BONUS_MINUTES)
+                dismiss()
+            }, android.widget.LinearLayout.LayoutParams(wide).apply { topMargin = dp(14) })
         }
     }
 }

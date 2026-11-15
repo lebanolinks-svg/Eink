@@ -62,8 +62,32 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Draws a paper-like tint over the screen to imitate an e-ink display" />
+                android:value="Draws a paper-like tint over the screen and a time-is-up screen over apps that passed the daily limit the user set" />
         </service>
+
+        <receiver
+            android:name=".ScreenTimeWidget"
+            android:exported="false"
+            android:label="@string/widget_screen_time">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_screen_time" />
+        </receiver>
+
+        <receiver
+            android:name=".MostUsedWidget"
+            android:exported="false"
+            android:label="@string/widget_most_used">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_most_used" />
+        </receiver>
 
         <receiver
             android:name=".BootReceiver"

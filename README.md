@@ -4,24 +4,27 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 
 ## What it does
 
-| Layer | Effect | Needs |
+| Feature | Effect | Needs |
 |---|---|---|
-| **Home screen** | Paper-coloured launcher with a serif clock, today's screen time, and an app grid that turns pages like an e-reader instead of scrolling. Icons shown as **Doodle** (each app's real icon redrawn as a pen sketch), **Ink** (high-contrast grey) or **Original**. Long-press an app to pin, hide or open its info. | Set InkPhone as the home app |
-| **Paper screen layer** | Over every app: a paper-grey wash with grain that fades colours (adjustable), a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | Off by default. "Display over other apps" permission and usage access |
-| **Greyscale + no animations** | The whole phone in black and white, with window and transition animations removed. | Two switches in Android's Accessibility settings; the app guides you there and ticks each when done |
-| **Screen time** | "On the phone today: 1h 20m" on the home screen. | Usage access |
+| **Master grey** | The whole phone in black and white, with animations removed. A ◐ button on the home screen turns it on and off. | Two switches in Android's Accessibility settings (guided), or one tap after the debug permission |
+| **E-ink launcher** | Paper home screen with an app grid that turns pages like an e-reader. Icons as **Doodle** (each app's real icon redrawn as a pen sketch), **Grey** or **As is**. Long-press an app to pin, hide, limit or open its info. | Set InkPhone as the home app |
+| **Build your home screen** | Switch each block on or off: clock (serif or handwritten), date, screen time, most used apps, search, grey button, app names. Choose 3 to 6 icons per row. | — |
+| **App limits** | Minutes per day for any app. When they run out the app shows a "time's up" page with a way home and a 5-minute extension. | Usage access; "display over other apps" to lock from inside the app |
+| **Widgets** | "Screen time" and "Most used apps" widgets for any launcher. | Usage access |
+| **Paper wash** | Optional paper-grey film with grain over every app, a refresh flash on screen changes, and the display's slowest refresh rate. Off by default. | "Display over other apps" and usage access |
 
-Android refuses taps on sign-in, payment, install and permission screens while any app draws over them. The wash therefore removes itself whenever Google sign-in, the Play Store, Settings, or an app that looks like a bank, wallet or authenticator is in front, and its notification has a "Pause 5 minutes" button for anything it misses.
+Android refuses taps on sign-in, payment, install and permission screens while any app draws over them. The paper wash therefore removes itself whenever Google sign-in, the Play Store, Settings, or an app that looks like a bank, wallet or authenticator is in front, and its notification has a pause button for anything it misses.
 
-The screen layer is a see-through overlay that never receives touches. The app uses no accessibility service, reads no screen content and has no internet permission.
+The app uses no accessibility service, reads no screen content and has no internet permission.
 
 ## Install
 
 1. Copy `app-debug.apk` to the phone and open it (allow "install unknown apps" when asked).
-2. Open **InkPhone**. It shows three cards; each works on its own:
-   - **Grey phone** — every app in black and white. Three guided taps in Android's colour settings.
-   - **E-ink home screen** — the paper launcher, with Doodle, Grey or Original icons.
-   - **Advanced** — the paper wash over apps, screen time, and one-tap control for technical users.
+2. Open **InkPhone**. It shows four cards; each works on its own:
+   - **Master grey** — every app in black and white. Three guided taps in Android's colour settings.
+   - **E-ink launcher** — the paper home screen, its icon look and its blocks.
+   - **App limits** — daily minutes per app.
+   - **Advanced** — the paper wash, screen time, and one-tap control for technical users.
 
 One-tap Grey phone needs a one-time permission from a computer with USB debugging on:
 

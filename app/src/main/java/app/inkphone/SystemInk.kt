@@ -39,6 +39,20 @@ object SystemInk {
         return if (samsung) true else stock
     }
 
+    /** Stock Android has a dedicated colour correction screen; other brands land on Accessibility. */
+    fun openColourSettings(c: Context) {
+        val actions = listOf(
+            "com.android.settings.ACCESSIBILITY_COLOR_SPACE_SETTINGS",
+            Settings.ACTION_ACCESSIBILITY_SETTINGS,
+            Settings.ACTION_SETTINGS,
+        )
+        for (action in actions) {
+            val intent = android.content.Intent(action)
+            if (c !is android.app.Activity) intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { c.startActivity(intent) }.isSuccess) return
+        }
+    }
+
     fun isGrayscale(c: Context): Boolean = grayscaleState(c) == true
 
     fun setGrayscale(c: Context, on: Boolean) {
@@ -80,6 +94,31 @@ object ScreenTime {
             .sumOf { it.totalTimeInForeground }
         return (total / 60_000L).toInt()
     }
+
+    /** Milliseconds in the foreground since midnight, per package. */
+    fun perApp(c: Context): Map<String, Long> {
+        val midnight = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val usm = c.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, midnight, System.currentTimeMillis())
+            ?: return emptyMap()
+        val out = HashMap<String, Long>()
+        for (s in stats) {
+            if (s.lastTimeUsed >= midnight && s.totalTimeInForeground > 0) {
+                out[s.packageName] = (out[s.packageName] ?: 0L) + s.totalTimeInForeground
+            }
+        }
+        return out
+    }
+
+    /** The apps used most today that can be opened from a launcher, longest first. */
+    fun topApps(c: Context, count: Int): List<Pair<String, Int>> =
+        perApp(c).entries
+            .filter { it.key != c.packageName && it.value >= 60_000L && c.packageManager.getLaunchIntentForPackage(it.key) != null }
+            .sortedByDescending { it.value }
+            .take(count)
+            .map { it.key to (it.value / 60_000L).toInt() }
 
     fun format(minutes: Int): String = if (minutes >= 60) "${minutes / 60}h ${minutes % 60}m" else "${minutes}m"
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- hourglass with the sand run out -->
+    <path
+        android:pathData="M6.5,3.5 H17.5 M6.5,20.5 H17.5 M8,3.5 C8,9 12,10 12,12 C12,14 8,15 8,20.5 M16,3.5 C16,9 12,10 12,12 C12,14 16,15 16,20.5"
+        android:strokeColor="#1C1C1C"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.8" />
+    <path android:fillColor="#1C1C1C" android:pathData="M9.2,20 Q12,14.5 14.8,20 Z" />
+</vector>

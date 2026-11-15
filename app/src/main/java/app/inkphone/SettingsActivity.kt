@@ -85,6 +85,7 @@ class SettingsActivity : Activity() {
         page.addView(script("choose your ink", 30f), spaced(22))
         greyCard()
         homeCard()
+        limitsCard()
         advancedCard()
     }
 
@@ -204,8 +205,8 @@ class SettingsActivity : Activity() {
             card.addView(button("open colour settings", primary = true) { openColourSettings() })
             card.addView(note("You only do this once. Android does not let any app flip this switch for you."))
         } else {
-            card.addView(note("To get colour back, switch it off in the same Android screen."))
-            card.addView(button("open colour settings", primary = false) { openColourSettings() })
+            card.addView(button("turn grey off", primary = true) { openColourSettings() })
+            card.addView(note("Switch colour correction off on the screen that opens. The ◐ button on the home screen does the same."))
         }
 
         card.addView(divider())
@@ -260,9 +261,102 @@ class SettingsActivity : Activity() {
             row.addView(chip, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { topMargin = dp(8) })
         }
         card.addView(row)
+        customise(card)
     }
 
-    // ---- 3 · Advanced ----------------------------------------------------------------
+    /** Which blocks the home screen shows and how the grid looks. */
+    private fun customise(card: LinearLayout) {
+        card.addView(divider())
+        card.addView(script("build your home screen", 23f))
+        card.addView(switch("Clock", prefs.showClock) { prefs.showClock = it })
+        card.addView(switch("Handwritten clock", prefs.handClock) { prefs.handClock = it })
+        card.addView(switch("Date", prefs.showDate) { prefs.showDate = it })
+        card.addView(switch("Screen time today", prefs.showScreenTime) { prefs.showScreenTime = it })
+        card.addView(switch("Most used apps", prefs.showMostUsed) { prefs.showMostUsed = it })
+        card.addView(switch("Search box", prefs.showSearch) { prefs.showSearch = it })
+        card.addView(switch("Grey on/off button", prefs.showGreyButton) { prefs.showGreyButton = it })
+        card.addView(switch("App names under icons", prefs.showLabels) { prefs.showLabels = it })
+
+        card.addView(script("icons per row", 23f).apply { setPadding(0, dp(14), 0, 0) })
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (n in 3..6) {
+            row.addView(
+                button("$n", primary = prefs.columns == n) {
+                    prefs.columns = n
+                    rebuild()
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    topMargin = dp(8)
+                    marginEnd = if (n == 6) 0 else dp(8)
+                },
+            )
+        }
+        card.addView(row)
+        card.addView(note("Widgets: InkPhone also adds “Screen time” and “Most used apps” to your phone's widget list, for any home screen."))
+    }
+
+    // ---- 3 · App limits ---------------------------------------------------------------
+
+    private fun limitsCard() {
+        val limits = prefs.limits()
+        val card = card(R.drawable.ic_limit, "App limits", "Give an app minutes per day. When they run out, it locks until tomorrow.", limits.isNotEmpty())
+        val usageOk = ScreenTime.hasAccess(this)
+        if (!usageOk) {
+            card.addView(note("InkPhone needs usage access to count the minutes."))
+            card.addView(button("allow usage access", primary = true) { open(Settings.ACTION_USAGE_ACCESS_SETTINGS) })
+            return
+        }
+
+        val used = runCatching { ScreenTime.perApp(this) }.getOrDefault(emptyMap())
+        for ((pkg, minutes) in limits.entries.sortedBy { appName(it.key).lowercase() }) {
+            val spent = ((used[pkg] ?: 0L) / 60_000L).toInt()
+            val over = spent >= minutes + prefs.bonus(pkg)
+            card.addView(body("${if (over) "🔒" else "○"}  ${appName(pkg)}  ·  ${ScreenTime.format(spent)} of ${ScreenTime.format(minutes)}").apply {
+                background = SketchDrawable(density, 0, 0x551C1C1C, 10f, wobble = 0.6f)
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                layoutParams = spaced(10)
+                setOnClickListener { Limits.pick(this@SettingsActivity, prefs, pkg, appName(pkg)) { rebuild() } }
+            })
+        }
+        if (limits.isNotEmpty()) card.addView(note("Tap a limit to change or remove it."))
+
+        card.addView(button("add a limit", primary = limits.isEmpty()) { pickAppForLimit() })
+        if (!Settings.canDrawOverlays(this)) {
+            card.addView(note("Right now a limit only stops the app being opened from the InkPhone home screen. To lock it from inside the app too, allow this:"))
+            card.addView(button("allow display over other apps", primary = false) {
+                runCatching {
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                }.onFailure { open(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) }
+            })
+        } else {
+            InkService.ensure(this)
+            card.addView(note("A locked app shows a “time's up” page with a way back home and a ${Limits.BONUS_MINUTES}-minute extension."))
+        }
+    }
+
+    private fun appName(pkg: String): String = runCatching {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    }.getOrDefault(pkg)
+
+    private fun pickAppForLimit() {
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = packageManager.queryIntentActivities(launcher, 0)
+            .map { it.activityInfo.packageName }
+            .distinct()
+            .filter { it != packageName }
+            .map { it to appName(it) }
+            .sortedBy { it.second.lowercase() }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Limit which app?")
+            .setItems(apps.map { it.second }.toTypedArray()) { _, which ->
+                val (pkg, name) = apps[which]
+                Limits.pick(this, prefs, pkg, name) { rebuild() }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---- 4 · Advanced ----------------------------------------------------------------
 
     private fun advancedCard() {
         val card = card(R.drawable.ic_advanced, "Advanced", "Paper wash, screen time and the debug shortcut.", null)
@@ -364,13 +458,7 @@ class SettingsActivity : Activity() {
         return packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
     }
 
-    /** Stock Android has a dedicated colour correction screen; other brands land on Accessibility. */
-    private fun openColourSettings() {
-        for (action in listOf(COLOUR_CORRECTION, Settings.ACTION_ACCESSIBILITY_SETTINGS)) {
-            if (runCatching { startActivity(Intent(action)) }.isSuccess) return
-        }
-        open(Settings.ACTION_SETTINGS)
-    }
+    private fun openColourSettings() = SystemInk.openColourSettings(this)
 
     private fun open(action: String) {
         runCatching { startActivity(Intent(action)) }
@@ -494,10 +582,5 @@ class SettingsActivity : Activity() {
         isChecked = checked
         setPadding(0, dp(12), 0, dp(4))
         setOnCheckedChangeListener { _, value -> onChange(value) }
-    }
-
-    private companion object {
-        /** Stock Android's colour correction screen; absent on some brands. */
-        const val COLOUR_CORRECTION = "com.android.settings.ACCESSIBILITY_COLOR_SPACE_SETTINGS"
     }
 }
