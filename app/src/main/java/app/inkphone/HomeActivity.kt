@@ -92,6 +92,7 @@ class HomeActivity : Activity() {
         }
         refresh()
         updateScreenTime()
+        InkService.ensure(this)
     }
 
     /** Home pressed while already home: back to the first page. */

@@ -7,17 +7,19 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 | Layer | Effect | Needs |
 |---|---|---|
 | **Home screen** | Paper-coloured launcher with a serif clock, today's screen time, and an app grid that turns pages like an e-reader instead of scrolling. Icons shown as **Doodle** (each app's real icon redrawn as a pen sketch), **Ink** (high-contrast grey) or **Original**. Long-press an app to pin, hide or open its info. | Set InkPhone as the home app |
-| **Paper screen layer** | Over every app: a warm paper tint with grain, a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | Accessibility service switched on |
+| **Paper screen layer** | Over every app: a warm paper tint with grain, a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | "Display over other apps" permission (flash also needs usage access) |
 | **Greyscale + no animations** | The whole phone in black and white, with window and transition animations removed. | One ADB command (or set by hand) |
 | **Screen time** | "On the phone today: 1h 20m" on the home screen. | Usage access |
 
-The accessibility service only draws the layer and listens for "screen changed" events. It does not read screen content, and the app has no internet permission.
+While the layer is on, Android shows a small permanent "Paper screen layer is on" notification; that is what keeps the layer alive.
+
+The screen layer is a see-through overlay that never receives touches. The app uses no accessibility service, reads no screen content and has no internet permission.
 
 ## Install
 
 1. Copy `app-debug.apk` to the phone and open it (allow "install unknown apps" when asked).
 2. Open **InkPhone** and follow the four sections top to bottom.
-3. On Android 13 and later, sideloaded apps cannot enable an accessibility service straight away. If the toggle is greyed out: **App info → ⋮ → Allow restricted settings**, then enable it.
+3. If Android greys out "display over other apps" for a sideloaded app: **App info → ⋮ → Allow restricted settings**, then try again.
 4. For the greyscale and animation switches, connect the phone to a computer once with USB debugging on:
 
    ```

@@ -10,6 +10,11 @@ class Prefs(context: Context) {
         get() = sp.getInt(ICON_STYLE, IconStyler.DOODLE)
         set(v) = sp.edit().putInt(ICON_STYLE, v).apply()
 
+    /** Master switch for the layer drawn over other apps. */
+    var layerOn: Boolean
+        get() = sp.getBoolean(LAYER_ON, true)
+        set(v) = sp.edit().putBoolean(LAYER_ON, v).apply()
+
     var paper: Boolean
         get() = sp.getBoolean(PAPER, true)
         set(v) = sp.edit().putBoolean(PAPER, v).apply()
@@ -37,6 +42,7 @@ class Prefs(context: Context) {
 
     companion object {
         const val ICON_STYLE = "icon_style"
+        const val LAYER_ON = "layer_on"
         const val PAPER = "paper"
         const val PAPER_STRENGTH = "paper_strength"
         const val FLASH = "flash"

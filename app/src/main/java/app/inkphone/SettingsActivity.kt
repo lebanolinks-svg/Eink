@@ -87,17 +87,19 @@ class SettingsActivity : Activity() {
 
         // 2 — overlay
         section("2 · Paper screen layer (all apps)")
-        if (InkService.running) {
-            body("The screen layer is on.")
-        } else {
-            body(
-                "Turn on “InkPhone screen layer” under Accessibility → Installed apps. " +
-                    "If Android says the setting is restricted, open App info for InkPhone, tap ⋮ and choose “Allow restricted settings”, then try again."
-            )
-            button("Open Accessibility settings") { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) }
-            button("Open InkPhone app info") {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
+        if (!Settings.canDrawOverlays(this)) {
+            body("Allow InkPhone to display over other apps so it can lay the paper tint over the whole phone.")
+            button("Allow display over other apps") {
+                runCatching {
+                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+                }.onFailure { open(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) }
             }
+        } else {
+            switch("Paper screen layer", prefs.layerOn) { on ->
+                prefs.layerOn = on
+                if (on) InkService.ensure(this) else InkService.stop(this)
+            }
+            InkService.ensure(this)
         }
         switch("Paper tint and grain", prefs.paper) { prefs.paper = it }
         body("Strength")
@@ -113,6 +115,7 @@ class SettingsActivity : Activity() {
             })
         })
         switch("Page-refresh flash when the screen changes", prefs.flash) { prefs.flash = it }
+        if (!ScreenTime.hasAccess(this)) body("The flash needs usage access (section 4) to know when the screen changes.")
         switch("Ask the display for its slowest refresh rate", prefs.lowRefresh) { prefs.lowRefresh = it }
 
         // 3 — system
