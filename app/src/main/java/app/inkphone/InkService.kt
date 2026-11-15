@@ -20,32 +20,39 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Shader
+import android.graphics.drawable.Icon
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Display
 import android.view.View
 import android.view.WindowManager
 
 /**
- * Draws the e-ink layer over every app: a paper tint with grain, an optional
- * black/white "page refresh" flash when the foreground screen changes, and a
- * request for the panel's slowest refresh rate.
+ * The optional paper wash drawn over other apps: a grey film with grain, a
+ * black/white "page refresh" flash when the screen changes, and a request for
+ * the panel's slowest refresh rate.
  *
- * Uses the ordinary "display over other apps" permission. The layer never
- * receives touches; Android only lets touches pass through an overlay that is
- * at most 80% opaque, so the whole window is capped there.
+ * Android blocks taps on sign-in, payment, install and permission screens
+ * while any app is drawing over them. So the wash watches which app is in
+ * front and takes itself off the screen completely for those, and the
+ * notification has a Pause button for anything it does not recognise.
  */
 class InkService : Service() {
     private lateinit var prefs: Prefs
     private var overlay: InkOverlay? = null
+    private lateinit var params: WindowManager.LayoutParams
+    private var attached = false
     private val handler = Handler(Looper.getMainLooper())
     private var lastScreen: String? = null
     private var lastPoll = 0L
+    private var sensitive = false
+    private var pausedUntil = 0L
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> apply() }
 
@@ -56,16 +63,18 @@ class InkService : Service() {
         }
     }
 
-    /** Watches which screen is in front (needs usage access) and flashes when it changes. */
     private val poll = object : Runnable {
         override fun run() {
-            if (prefs.flash && ScreenTime.hasAccess(this@InkService)) {
-                val current = runCatching { foregroundScreen() }.getOrNull()
-                if (current != null && current != lastScreen) {
-                    if (lastScreen != null) flash()
-                    lastScreen = current
-                }
+            val screen = runCatching { foregroundScreen() }.getOrNull()
+            var changed = false
+            if (screen != null && screen != lastScreen) {
+                changed = lastScreen != null
+                lastScreen = screen
+                sensitive = isSensitive(screen.substringBefore('/'))
             }
+            val show = !sensitive && SystemClock.uptimeMillis() >= pausedUntil
+            setAttached(show)
+            if (show && changed && prefs.flash) flash()
             handler.postDelayed(this, POLL_MS)
         }
     }
@@ -76,13 +85,13 @@ class InkService : Service() {
         super.onCreate()
         prefs = Prefs(this)
         startInForeground()
-        if (!Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this) || !ScreenTime.hasAccess(this)) {
             stopSelf()
             return
         }
 
-        val view = InkOverlay(this)
-        val lp = WindowManager.LayoutParams(
+        overlay = InkOverlay(this)
+        params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -92,16 +101,11 @@ class InkService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT,
         )
-        lp.alpha = MAX_PASS_THROUGH_ALPHA
+        // Android only lets touches through an overlay that is at most 80% opaque.
+        params.alpha = MAX_PASS_THROUGH_ALPHA
         if (Build.VERSION.SDK_INT >= 28) {
-            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
-        val added = runCatching { windowManager().addView(view, lp) }.isSuccess
-        if (!added) {
-            stopSelf()
-            return
-        }
-        overlay = view
         running = true
         prefs.sp.registerOnSharedPreferenceChangeListener(prefListener)
         registerReceiver(screenReceiver, IntentFilter().apply {
@@ -112,23 +116,45 @@ class InkService : Service() {
         if ((getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive) handler.post(poll)
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_PAUSE && overlay != null) {
+            pausedUntil = SystemClock.uptimeMillis() + PAUSE_MS
+            setAttached(false)
+        }
+        return START_STICKY
+    }
 
     private fun windowManager() = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    /** Puts the wash on screen or takes it off entirely; a hidden-but-present window would still block taps. */
+    private fun setAttached(show: Boolean) {
+        val view = overlay ?: return
+        if (show == attached) return
+        attached = if (show) {
+            runCatching { windowManager().addView(view, params) }.isSuccess
+        } else {
+            runCatching { windowManager().removeView(view) }
+            false
+        }
+    }
 
     private fun startInForeground() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Paper screen layer", NotificationManager.IMPORTANCE_MIN)
+            NotificationChannel(CHANNEL, "Paper wash", NotificationManager.IMPORTANCE_MIN)
         )
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, SettingsActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
+        val pause = PendingIntent.getService(
+            this, 1, Intent(this, InkService::class.java).setAction(ACTION_PAUSE), PendingIntent.FLAG_IMMUTABLE
+        )
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_ink)
-            .setContentTitle("Paper screen layer is on")
-            .setContentText("Tap to change or turn off")
+            .setContentTitle("Paper wash is on")
+            .setContentText("If a screen will not respond to taps, pause it here")
             .setContentIntent(open)
+            .addAction(Notification.Action.Builder(null as Icon?, "Pause 5 minutes", pause).build())
             .setOngoing(true)
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -148,11 +174,10 @@ class InkService : Service() {
         view.strength = prefs.paperStrength / 100f
         view.invalidate()
 
-        val lp = view.layoutParams as WindowManager.LayoutParams
         val modeId = if (prefs.lowRefresh) slowestModeId() else 0
-        if (lp.preferredDisplayModeId != modeId) {
-            lp.preferredDisplayModeId = modeId
-            runCatching { windowManager().updateViewLayout(view, lp) }
+        if (params.preferredDisplayModeId != modeId) {
+            params.preferredDisplayModeId = modeId
+            if (attached) runCatching { windowManager().updateViewLayout(view, params) }
         }
     }
 
@@ -193,11 +218,11 @@ class InkService : Service() {
     override fun onDestroy() {
         running = false
         handler.removeCallbacksAndMessages(null)
-        overlay?.let { view ->
+        if (overlay != null) {
+            setAttached(false)
             overlay = null
             prefs.sp.unregisterOnSharedPreferenceChangeListener(prefListener)
             runCatching { unregisterReceiver(screenReceiver) }
-            runCatching { windowManager().removeView(view) }
         }
         super.onDestroy()
     }
@@ -206,16 +231,40 @@ class InkService : Service() {
         private const val CHANNEL = "layer"
         private const val NOTIFICATION_ID = 1
         private const val POLL_MS = 400L
+        private const val PAUSE_MS = 5 * 60_000L
         private const val EVENT_RESUMED = 1 // UsageEvents.Event.ACTIVITY_RESUMED
         private const val MAX_PASS_THROUGH_ALPHA = 0.8f
+        private const val ACTION_PAUSE = "app.inkphone.PAUSE"
+
+        /** Apps whose screens refuse taps while anything is drawn over them. */
+        private val SENSITIVE_APPS = setOf(
+            "com.google.android.gms",          // Google sign-in and account screens
+            "com.google.android.gsf.login",
+            "com.android.vending",             // Play Store purchases
+            "com.google.android.apps.walletnfcrel",
+            "com.android.settings",            // permission and security switches
+            "com.osp.app.signin",              // Samsung account
+            "com.samsung.android.spay",
+            "com.samsung.android.samsungpass",
+        )
+        private val SENSITIVE_WORDS = listOf(
+            "packageinstaller", "permissioncontroller", "bank", "wallet", "paypal",
+            "authenticator", "password", "keychain", ".pay", "securitycenter",
+        )
+
+        fun isSensitive(packageName: String): Boolean {
+            val name = packageName.lowercase()
+            return name in SENSITIVE_APPS || SENSITIVE_WORDS.any { it in name }
+        }
 
         @Volatile
         var running = false
             private set
 
-        /** Starts the layer if the user wants it and the permission is there. Safe to call often. */
+        /** Starts the wash if the user wants it and both permissions are there. Safe to call often. */
         fun ensure(context: Context) {
-            if (running || !Prefs(context).layerOn || !Settings.canDrawOverlays(context)) return
+            if (running || !Prefs(context).layerOn) return
+            if (!Settings.canDrawOverlays(context) || !ScreenTime.hasAccess(context)) return
             runCatching { context.startForegroundService(Intent(context, InkService::class.java)) }
         }
 
@@ -225,7 +274,7 @@ class InkService : Service() {
     }
 }
 
-/** Brings the layer back after a reboot or an app update. */
+/** Brings the wash back after a reboot or an app update. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) = InkService.ensure(context)
 }

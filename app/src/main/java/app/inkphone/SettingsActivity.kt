@@ -6,8 +6,13 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,30 +28,47 @@ import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import java.util.concurrent.Executors
 
 /**
- * Three options, each a card with one obvious action:
- * Grey phone, E-ink home screen, and Advanced.
+ * The menu, drawn like a page from a sketchbook. A before/after strip of the
+ * user's own apps on top, then three choices: Master grey, E-ink launcher, Advanced.
  */
 class SettingsActivity : Activity() {
+    /** One app icon in the three looks the launcher offers. */
+    private class Sample(val colour: Bitmap, val grey: Bitmap, val doodle: Bitmap)
+
     private lateinit var prefs: Prefs
     private lateinit var page: LinearLayout
     private var showAdvanced = false
+    private var samples: List<Sample> = emptyList()
+    private var realSamplesLoaded = false
+    private val io = Executors.newSingleThreadExecutor()
+
     private val ink by lazy { getColor(R.color.ink) }
     private val paper by lazy { getColor(R.color.paper) }
+    private val hand: Typeface by lazy { runCatching { resources.getFont(R.font.caveat) }.getOrDefault(Typeface.SERIF) }
+    private val density by lazy { resources.displayMetrics.density }
     private val adbCommand by lazy { "adb shell pm grant $packageName android.permission.WRITE_SECURE_SETTINGS" }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        samples = builtInSamples()
         page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(20), dp(18), dp(36))
+            setPadding(dp(18), dp(14), dp(14), dp(40))
         }
         setContentView(ScrollView(this).apply {
             fitsSystemWindows = true
             addView(page)
         })
+        loadRealSamples()
+    }
+
+    override fun onDestroy() {
+        io.shutdownNow()
+        super.onDestroy()
     }
 
     // Rebuilt on every return so each card shows what was just changed in Android's settings.
@@ -57,22 +79,111 @@ class SettingsActivity : Activity() {
 
     private fun rebuild() {
         page.removeAllViews()
-        page.addView(text("InkPhone", 32f, bold = true))
-        page.addView(text("Pick what you want. Each one works on its own.", 16f).apply { setPadding(0, dp(4), 0, dp(4)) })
+        page.addView(script("InkPhone", 54f))
+        page.addView(script("a quieter phone, drawn in ink", 24f).apply { alpha = 0.75f })
+        hero()
+        page.addView(script("choose your ink", 30f), spaced(22))
         greyCard()
         homeCard()
         advancedCard()
     }
 
-    // ---- 1 · Grey phone ------------------------------------------------------
+    // ---- before / after strip --------------------------------------------------
+
+    private fun hero() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = SketchDrawable(density, 0xFFFBF9F3.toInt(), ink, 20f)
+            setPadding(dp(8), dp(12), dp(8), dp(10))
+        }
+        box.addView(InkCompareView(this, ink, paper).apply { pairs = samples.map { it.colour to it.doodle } })
+        box.addView(script("drag the pen across your apps", 21f).apply {
+            gravity = Gravity.CENTER
+            alpha = 0.75f
+        })
+        page.addView(box, spaced(14))
+    }
+
+    /** Swaps the built-in sample tiles for four of the user's own apps. */
+    private fun loadRealSamples() {
+        val size = dp(76)
+        io.execute {
+            val found = runCatching {
+                val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                packageManager.queryIntentActivities(launcher, 0)
+                    .filter { it.activityInfo.packageName != packageName }
+                    .sortedBy { it.loadLabel(packageManager).toString().lowercase() }
+                    .let { all -> if (all.size <= 4) all else List(4) { i -> all[i * all.size / 4] } }
+                    .map { info ->
+                        val icon = info.loadIcon(packageManager)
+                        val seed = info.activityInfo.packageName.hashCode()
+                        Sample(
+                            IconStyler.render(icon, IconStyler.ORIGINAL, size, seed),
+                            IconStyler.render(icon, IconStyler.INK, size, seed),
+                            IconStyler.render(icon, IconStyler.DOODLE, size, seed),
+                        )
+                    }
+            }.getOrDefault(emptyList())
+            if (found.size == 4) runOnUiThread {
+                if (!isDestroyed) {
+                    samples = found
+                    realSamplesLoaded = true
+                    rebuild()
+                }
+            }
+        }
+    }
+
+    /** Four made-up colourful app tiles, used until the real icons are ready. */
+    private fun builtInSamples(): List<Sample> {
+        val size = dp(76)
+        val s = size.toFloat()
+        val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
+        val ring = Paint(white).apply { style = Paint.Style.STROKE; strokeWidth = s * 0.08f }
+        val tiles: List<Pair<Int, (Canvas) -> Unit>> = listOf(
+            0xFF1FAF5A.toInt() to { c -> // chat bubble
+                c.drawOval(RectF(s * .24f, s * .26f, s * .76f, s * .68f), white)
+                c.drawPath(Path().apply { moveTo(s * .32f, s * .6f); lineTo(s * .27f, s * .8f); lineTo(s * .48f, s * .66f); close() }, white)
+            },
+            0xFFE03A2F.toInt() to { c -> // play
+                c.drawPath(Path().apply { moveTo(s * .38f, s * .28f); lineTo(s * .74f, s * .5f); lineTo(s * .38f, s * .72f); close() }, white)
+            },
+            0xFF1E6FE0.toInt() to { c -> // envelope
+                c.drawRoundRect(RectF(s * .22f, s * .32f, s * .78f, s * .68f), s * .04f, s * .04f, ring)
+                c.drawPath(Path().apply { moveTo(s * .24f, s * .35f); lineTo(s * .5f, s * .54f); lineTo(s * .76f, s * .35f) }, ring)
+            },
+            0xFFF08A00.toInt() to { c -> // camera
+                c.drawCircle(s * .5f, s * .52f, s * .2f, ring)
+                c.drawCircle(s * .5f, s * .52f, s * .07f, white)
+                c.drawRect(s * .4f, s * .22f, s * .6f, s * .3f, white)
+            },
+        )
+        return tiles.mapIndexed { i, (colour, glyph) ->
+            val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            canvas.drawRoundRect(
+                RectF(s * .06f, s * .06f, s * .94f, s * .94f), s * .22f, s * .22f,
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour },
+            )
+            glyph(canvas)
+            val icon = BitmapDrawable(resources, bmp)
+            Sample(
+                bmp,
+                IconStyler.render(icon, IconStyler.INK, size, i),
+                IconStyler.render(icon, IconStyler.DOODLE, size, i * 17 + 3),
+            )
+        }
+    }
+
+    // ---- 1 · Master grey ---------------------------------------------------------
 
     private fun greyCard() {
         val grey = SystemInk.grayscaleState(this) == true
         val still = SystemInk.animationsOff(this)
-        val card = card(R.drawable.ic_grey, "Grey phone", "Every app turns black and white. Nothing else changes.", grey)
+        val card = card(R.drawable.ic_grey, "Master grey", "The whole phone in black and white. Every app, every video.", grey)
 
         if (SystemInk.canWrite(this)) {
-            card.addView(button(if (grey) "Turn colour back on" else "Turn on", primary = !grey) {
+            card.addView(button(if (grey) "bring colour back" else "turn the phone grey", primary = !grey) {
                 guarded {
                     SystemInk.setGrayscale(this, !grey)
                     SystemInk.setAnimationsOff(this, !grey)
@@ -90,69 +201,72 @@ class SettingsActivity : Activity() {
                 if (samsung) "Open Vision enhancements, then Colour correction" else "Turn on “Use colour correction”",
                 if (samsung) "Turn it on and choose Greyscale" else "Choose Greyscale",
             ))
-            card.addView(button("Open colour settings", primary = true) { openColourSettings() })
-            card.addView(note("Come back here afterwards. Already grey but still says OFF? Some phones do not report it, and that is fine."))
+            card.addView(button("open colour settings", primary = true) { openColourSettings() })
+            card.addView(note("You only do this once. Android does not let any app flip this switch for you."))
         } else {
             card.addView(note("To get colour back, switch it off in the same Android screen."))
-            card.addView(button("Open colour settings", primary = false) { openColourSettings() })
+            card.addView(button("open colour settings", primary = false) { openColourSettings() })
         }
 
         card.addView(divider())
         if (still) {
-            card.addView(text("✓  Animations are off too", 15f))
+            card.addView(body("✓  Animations are off too"))
         } else {
-            card.addView(text("Extra: stop animations", 16f, bold = true))
+            card.addView(script("and stop the animations", 23f))
             card.addView(note(
                 if (samsung) "In Accessibility, open Vision enhancements and turn on Reduce animations."
                 else "In Accessibility, open Colour and motion and turn on Remove animations."
             ))
-            card.addView(button("Open Accessibility", primary = false) { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) })
+            card.addView(button("open accessibility", primary = false) { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) })
         }
     }
 
-    // ---- 2 · E-ink home screen -------------------------------------------------
+    // ---- 2 · E-ink launcher --------------------------------------------------------
 
     private fun homeCard() {
         val isHome = isDefaultHome()
         val card = card(
-            R.drawable.ic_home_ink, "E-ink home screen",
-            "A calm paper home screen. Apps turn pages instead of scrolling.", isHome,
+            R.drawable.ic_home_ink, "E-ink launcher",
+            "A paper home screen. Apps turn pages instead of scrolling.", isHome,
         )
-        card.addView(button(if (isHome) "Change home app" else "Set as home screen", primary = !isHome) {
+        card.addView(button(if (isHome) "change home app" else "make it my home screen", primary = !isHome) {
             open(Settings.ACTION_HOME_SETTINGS)
         })
         if (!isHome) card.addView(note("Choose InkPhone Home in the list that opens."))
 
         card.addView(divider())
-        card.addView(text("Icon look", 16f, bold = true))
+        card.addView(script("how should icons look?", 23f))
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(IconStyler.DOODLE to "Doodle", IconStyler.INK to "Grey", IconStyler.ORIGINAL to "Original").forEach { (style, label) ->
-            row.addView(
-                button(label, primary = prefs.iconStyle == style) {
+        val sample = samples.first()
+        listOf(
+            Triple(IconStyler.DOODLE, "doodle", sample.doodle),
+            Triple(IconStyler.INK, "grey", sample.grey),
+            Triple(IconStyler.ORIGINAL, "as is", sample.colour),
+        ).forEach { (style, label, preview) ->
+            val chosen = prefs.iconStyle == style
+            val chip = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                background = SketchDrawable(density, if (chosen) 0xFFFFFFFF.toInt() else 0, if (chosen) ink else 0x551C1C1C, 14f, shadow = chosen)
+                setPadding(dp(6), dp(10), dp(if (chosen) 12 else 6), dp(if (chosen) 12 else 6))
+                isClickable = true
+                setOnClickListener {
                     prefs.iconStyle = style
                     rebuild()
-                },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    topMargin = dp(10)
-                    marginEnd = if (style == IconStyler.ORIGINAL) 0 else dp(8)
-                },
-            )
+                }
+                addView(ImageView(context).apply { setImageBitmap(preview) }, LinearLayout.LayoutParams(dp(52), dp(52)))
+                addView(script(label, 21f).apply { gravity = Gravity.CENTER })
+            }
+            row.addView(chip, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { topMargin = dp(8) })
         }
         card.addView(row)
-        card.addView(note(
-            when (prefs.iconStyle) {
-                IconStyler.DOODLE -> "Every icon redrawn as a pen sketch."
-                IconStyler.INK -> "The real icons, in strong grey."
-                else -> "Icons exactly as they are."
-            }
-        ))
     }
 
-    // ---- 3 · Advanced ----------------------------------------------------------
+    // ---- 3 · Advanced ----------------------------------------------------------------
 
     private fun advancedCard() {
-        val card = card(R.drawable.ic_advanced, "Advanced", "Fine-tuning and one-tap control. For technical users.", null)
-        card.addView(button(if (showAdvanced) "Hide" else "Show", primary = false) {
+        val card = card(R.drawable.ic_advanced, "Advanced", "Paper wash, screen time and the debug shortcut.", null)
+        card.addView(button(if (showAdvanced) "close" else "open", primary = false) {
             showAdvanced = !showAdvanced
             rebuild()
         })
@@ -160,15 +274,25 @@ class SettingsActivity : Activity() {
 
         // Paper wash
         card.addView(divider())
-        card.addView(text("Paper wash over apps", 16f, bold = true))
-        card.addView(note("A paper-grey film over everything. Fades colours, but does not remove them like Grey phone does."))
-        if (!Settings.canDrawOverlays(this)) {
-            card.addView(button("Allow display over other apps", primary = false) {
+        card.addView(script("paper wash over apps", 23f))
+        card.addView(note(
+            "A paper-grey film over everything. It fades colours but does not remove them. " +
+                "It steps aside by itself on sign-in, payment and settings screens, which refuse taps while anything is drawn over them."
+        ))
+        val overlayOk = Settings.canDrawOverlays(this)
+        val usageOk = ScreenTime.hasAccess(this)
+        if (!overlayOk) {
+            card.addView(button("allow display over other apps", primary = false) {
                 runCatching {
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
                 }.onFailure { open(Settings.ACTION_MANAGE_OVERLAY_PERMISSION) }
             })
-        } else {
+        }
+        if (!usageOk) {
+            card.addView(button("allow usage access", primary = false) { open(Settings.ACTION_USAGE_ACCESS_SETTINGS) })
+            card.addView(note("Needed so the wash knows when to step aside."))
+        }
+        if (overlayOk && usageOk) {
             card.addView(switch("Paper wash", prefs.layerOn) { on ->
                 prefs.layerOn = on
                 if (on) InkService.ensure(this) else InkService.stop(this)
@@ -192,32 +316,32 @@ class SettingsActivity : Activity() {
 
         // Screen time
         card.addView(divider())
-        card.addView(text("Screen time on the home screen", 16f, bold = true))
-        if (ScreenTime.hasAccess(this)) {
+        card.addView(script("screen time on the home screen", 23f))
+        if (usageOk) {
             val minutes = runCatching { ScreenTime.todayMinutes(this) }.getOrDefault(0)
             card.addView(note("✓  On the phone today: ${ScreenTime.format(minutes)}"))
         } else {
-            card.addView(note("Shows today's total on the home screen. The flash also uses it."))
-            card.addView(button("Allow usage access", primary = false) { open(Settings.ACTION_USAGE_ACCESS_SETTINGS) })
+            card.addView(note("Shows today's total on the home screen."))
+            card.addView(button("allow usage access", primary = false) { open(Settings.ACTION_USAGE_ACCESS_SETTINGS) })
         }
 
         // One-tap grey
         card.addView(divider())
-        card.addView(text("One-tap Grey phone (debug)", 16f, bold = true))
+        card.addView(script("one-tap master grey (debug)", 23f))
         if (SystemInk.canWrite(this)) {
-            card.addView(note("✓  Enabled. The Grey phone button now works in one tap."))
+            card.addView(note("✓  Enabled. Master grey now works in one tap."))
         } else {
-            card.addView(note("Connect the phone to a computer once, with USB debugging on, and run this. After that the Grey phone button works in one tap."))
+            card.addView(note("Connect the phone to a computer once, with USB debugging on, and run this. After that Master grey is a single tap."))
             card.addView(TextView(this).apply {
                 text = adbCommand
                 typeface = Typeface.MONOSPACE
                 setTextColor(ink)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTextIsSelectable(true)
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                background = shape(fill = 0x141C1C1C, stroke = false, radius = 8)
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = SketchDrawable(density, 0x141C1C1C, 0x551C1C1C, 8f)
             }, spaced(8))
-            card.addView(button("Copy command", primary = false) {
+            card.addView(button("copy command", primary = false) {
                 (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
                     .setPrimaryClip(ClipData.newPlainText("adb", adbCommand))
                 Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
@@ -226,14 +350,14 @@ class SettingsActivity : Activity() {
 
         if (prefs.hidden.isNotEmpty()) {
             card.addView(divider())
-            card.addView(button("Show ${prefs.hidden.size} hidden app(s) again", primary = false) {
+            card.addView(button("show ${prefs.hidden.size} hidden app(s) again", primary = false) {
                 prefs.hidden = emptySet()
                 rebuild()
             })
         }
     }
 
-    // ---- actions -----------------------------------------------------------------
+    // ---- actions -----------------------------------------------------------------------
 
     private fun isDefaultHome(): Boolean {
         val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
@@ -259,46 +383,50 @@ class SettingsActivity : Activity() {
         }
     }
 
-    // ---- building blocks -----------------------------------------------------------
+    // ---- building blocks -----------------------------------------------------------------
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int) = (v * density).toInt()
 
     private fun spaced(top: Int) =
         LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = dp(top) }
 
-    private fun shape(fill: Int, stroke: Boolean, radius: Int) = GradientDrawable().apply {
-        setColor(fill)
-        cornerRadius = dp(radius).toFloat()
-        if (stroke) setStroke(dp(2), ink)
-    }
-
-    private fun text(value: String, sp: Float, bold: Boolean = false) = TextView(this).apply {
+    /** Handwritten text, for titles and buttons. */
+    private fun script(value: String, sp: Float) = TextView(this).apply {
         text = value
-        setTypeface(Typeface.SERIF, if (bold) Typeface.BOLD else Typeface.NORMAL)
+        typeface = hand
+        includeFontPadding = false
         setTextColor(ink)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
     }
 
-    private fun note(value: String) = text(value, 14f).apply {
+    /** Plain serif text, for anything that has to be read carefully. */
+    private fun body(value: String) = TextView(this).apply {
+        text = value
+        typeface = Typeface.SERIF
+        setTextColor(ink)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+    }
+
+    private fun note(value: String) = body(value).apply {
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
         alpha = 0.8f
         setPadding(0, dp(8), 0, 0)
     }
 
     private fun steps(vararg lines: String) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(0, dp(6), 0, 0)
+        setPadding(0, dp(4), 0, 0)
         lines.forEachIndexed { i, line ->
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, dp(6), 0, 0)
-                addView(text("${i + 1}", 14f, bold = true).apply {
+                addView(script("${i + 1}", 22f).apply {
                     gravity = Gravity.CENTER
-                    setTextColor(paper)
-                    background = shape(fill = ink, stroke = false, radius = 13)
-                }, LinearLayout.LayoutParams(dp(26), dp(26)))
-                addView(text(line, 15f).apply { setPadding(dp(10), 0, 0, 0) })
+                    background = SketchDrawable(density, 0, ink, 16f, wobble = 0.3f)
+                }, LinearLayout.LayoutParams(dp(32), dp(32)))
+                addView(body(line).apply { setPadding(dp(10), 0, 0, 0) })
             })
         }
     }
@@ -306,47 +434,51 @@ class SettingsActivity : Activity() {
     private fun divider() = View(this).apply {
         setBackgroundColor(0x331C1C1C)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
-            topMargin = dp(16)
+            topMargin = dp(18)
             bottomMargin = dp(14)
         }
     }
 
-    /** A bordered card with icon, title, one-line description and an ON/OFF pill. Returns it for more content. */
+    /** A hand-drawn card with icon, handwritten title, description and an ON stamp. Returns it for more content. */
     private fun card(icon: Int, title: String, subtitle: String, on: Boolean?): LinearLayout {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = shape(fill = 0xFFF9F7F1.toInt(), stroke = true, radius = 18)
-            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = SketchDrawable(density, 0xFFFBF9F3.toInt(), ink, 20f, shadow = true)
+            setPadding(dp(20), dp(18), dp(26), dp(28))
         }
         val head = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        head.addView(ImageView(this).apply { setImageResource(icon) }, LinearLayout.LayoutParams(dp(44), dp(44)))
+        head.addView(ImageView(this).apply { setImageResource(icon) }, LinearLayout.LayoutParams(dp(48), dp(48)))
         head.addView(
-            text(title, 22f, bold = true).apply { setPadding(dp(14), 0, dp(8), 0) },
+            script(title, 30f).apply { setPadding(dp(12), 0, dp(6), 0) },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
-        if (on != null) {
-            head.addView(text(if (on) "ON" else "OFF", 13f, bold = true).apply {
-                setTextColor(if (on) paper else ink)
-                background = shape(fill = if (on) ink else 0, stroke = true, radius = 20)
+        if (on == true) {
+            // a rubber stamp, pressed on slightly crooked
+            head.addView(script("ON", 24f).apply {
+                rotation = -9f
+                background = SketchDrawable(density, 0, ink, 8f, wobble = 0.8f)
                 setPadding(dp(12), dp(5), dp(12), dp(5))
             })
+        } else if (on == false) {
+            head.addView(script("off", 24f).apply { alpha = 0.4f })
         }
         card.addView(head)
-        card.addView(text(subtitle, 15f).apply { setPadding(0, dp(10), 0, dp(4)) })
-        page.addView(card, spaced(16))
+        card.addView(body(subtitle).apply { setPadding(0, dp(10), 0, dp(2)) })
+        page.addView(card, spaced(14))
         return card
     }
 
     private fun button(label: String, primary: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = label
         gravity = Gravity.CENTER
-        setTypeface(Typeface.SERIF, Typeface.BOLD)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        typeface = hand
+        includeFontPadding = false
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 25f)
         setTextColor(if (primary) paper else ink)
-        background = shape(fill = if (primary) ink else 0, stroke = true, radius = 12)
+        background = SketchDrawable(density, if (primary) ink else 0, ink, 14f)
         setPadding(dp(14), dp(13), dp(14), dp(13))
         layoutParams = spaced(12)
         isClickable = true

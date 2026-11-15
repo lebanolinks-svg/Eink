@@ -96,3 +96,16 @@ class DoodleTest {
         const val PAPER = 0xF2EFE6
     }
 }
+
+class SensitiveAppsTest {
+    @Test
+    fun washStepsAsideForSignInAndPayments() {
+        for (pkg in listOf("com.google.android.gms", "com.android.vending", "com.android.settings",
+            "com.google.android.packageinstaller", "com.android.permissioncontroller", "com.example.mybank.app", "com.paypal.android.p2pmobile")) {
+            assertTrue(pkg, InkService.isSensitive(pkg))
+        }
+        for (pkg in listOf("com.whatsapp", "com.google.android.youtube", "com.android.chrome", "app.inkphone")) {
+            assertTrue(pkg, !InkService.isSensitive(pkg))
+        }
+    }
+}

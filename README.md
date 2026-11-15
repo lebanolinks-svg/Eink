@@ -7,11 +7,11 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 | Layer | Effect | Needs |
 |---|---|---|
 | **Home screen** | Paper-coloured launcher with a serif clock, today's screen time, and an app grid that turns pages like an e-reader instead of scrolling. Icons shown as **Doodle** (each app's real icon redrawn as a pen sketch), **Ink** (high-contrast grey) or **Original**. Long-press an app to pin, hide or open its info. | Set InkPhone as the home app |
-| **Paper screen layer** | Over every app: a paper-grey wash with grain that fades colours (adjustable), a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | "Display over other apps" permission (flash also needs usage access) |
+| **Paper screen layer** | Over every app: a paper-grey wash with grain that fades colours (adjustable), a black/white "page refresh" flash when the screen changes, and a request for the display's slowest refresh rate. | Off by default. "Display over other apps" permission and usage access |
 | **Greyscale + no animations** | The whole phone in black and white, with window and transition animations removed. | Two switches in Android's Accessibility settings; the app guides you there and ticks each when done |
 | **Screen time** | "On the phone today: 1h 20m" on the home screen. | Usage access |
 
-While the layer is on, Android shows a small permanent "Paper screen layer is on" notification; that is what keeps the layer alive.
+Android refuses taps on sign-in, payment, install and permission screens while any app draws over them. The wash therefore removes itself whenever Google sign-in, the Play Store, Settings, or an app that looks like a bank, wallet or authenticator is in front, and its notification has a "Pause 5 minutes" button for anything it misses.
 
 The screen layer is a see-through overlay that never receives touches. The app uses no accessibility service, reads no screen content and has no internet permission.
 
@@ -41,5 +41,5 @@ Requires JDK 17+ and the Android SDK (platform 35).
 
 ```
 ./gradlew assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest  # doodle renderer tests; writes app/build/doodle-preview.ppm
+./gradlew testDebugUnitTest  # doodle tests, and renders the menu to app/build/screens/settings.png
 ```

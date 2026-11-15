@@ -12,7 +12,7 @@ class Prefs(context: Context) {
 
     /** Master switch for the layer drawn over other apps. */
     var layerOn: Boolean
-        get() = sp.getBoolean(LAYER_ON, true)
+        get() = sp.getBoolean(LAYER_ON, false)
         set(v) = sp.edit().putBoolean(LAYER_ON, v).apply()
 
     var paper: Boolean
