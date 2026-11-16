@@ -60,7 +60,15 @@ class SettingsActivity : Activity() {
             setPadding(dp(18), dp(14), dp(14), dp(40))
         }
         setContentView(ScrollView(this).apply {
-            fitsSystemWindows = true
+            // Android 15+ draws apps under the status and navigation bars; keep the page clear of them.
+            setOnApplyWindowInsetsListener { v, insets ->
+                @Suppress("DEPRECATION")
+                v.setPadding(
+                    insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom,
+                )
+                insets
+            }
             addView(page)
         })
         loadRealSamples()

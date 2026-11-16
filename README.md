@@ -41,9 +41,19 @@ adb shell pm grant app.inkphone android.permission.WRITE_SECURE_SETTINGS
 
 ## Build
 
-Requires JDK 17+ and the Android SDK (platform 35).
+Requires JDK 17+ and the Android SDK (platform 36).
 
 ```
 ./gradlew assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest  # doodle tests, and renders the menu to app/build/screens/settings.png
 ```
+
+## Google Play
+
+Listing text, declarations, privacy policy and graphics are in `docs/play-store/`.
+
+```
+./gradlew bundleRelease -PuploadKeystore=/path/upload.jks -PuploadStorePassword=... -PuploadKeyAlias=upload -PuploadKeyPassword=...
+```
+
+produces `app/build/outputs/bundle/release/app-release.aab`, signed with the upload key. The upload key is never stored in this repository.

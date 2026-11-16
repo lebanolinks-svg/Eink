@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "app.inkphone"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.inkphone"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 9
-        versionName = "1.8"
+        targetSdk = 36
+        versionCode = 10
+        versionName = "1.9"
     }
 
     // A fixed test key kept in the repo so every build (local or CI) installs
@@ -24,11 +24,25 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+
+        // The Play upload key is never stored in the repo. Supply it with
+        // -PuploadKeystore=... -PuploadStorePassword=... -PuploadKeyAlias=... -PuploadKeyPassword=...
+        // or the matching ORG_GRADLE_PROJECT_* environment variables.
+        val uploadKeystore = providers.gradleProperty("uploadKeystore").orNull
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = providers.gradleProperty("uploadStorePassword").get()
+                keyAlias = providers.gradleProperty("uploadKeyAlias").get()
+                keyPassword = providers.gradleProperty("uploadKeyPassword").get()
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
     compileOptions {

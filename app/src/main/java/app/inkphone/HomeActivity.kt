@@ -190,8 +190,16 @@ class HomeActivity : Activity() {
     private fun buildUi(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            fitsSystemWindows = true
             setPadding(dp(20), dp(12), dp(20), dp(8))
+            // Android 15+ draws apps under the status and navigation bars; keep the page clear of them.
+            setOnApplyWindowInsetsListener { v, insets ->
+                @Suppress("DEPRECATION")
+                v.setPadding(
+                    dp(20) + insets.systemWindowInsetLeft, dp(12) + insets.systemWindowInsetTop,
+                    dp(20) + insets.systemWindowInsetRight, dp(8) + insets.systemWindowInsetBottom,
+                )
+                insets
+            }
         }
 
         if (prefs.showClock) {
