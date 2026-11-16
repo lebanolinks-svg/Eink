@@ -71,6 +71,11 @@ class MostUsedWidget : AppWidgetProvider() {
             val views = RemoteViews(c.packageName, R.layout.widget_most_used)
             views.setOnClickPendingIntent(R.id.root, Widgets.openMenu(c))
             val access = ScreenTime.hasAccess(c)
+            if (!Pro.unlocked(c)) {
+                views.setTextViewText(R.id.title, "unlock InkPhone to see most used apps")
+                for (slot in SLOTS) views.setViewVisibility(slot, View.INVISIBLE)
+                return views
+            }
             val top = if (access) runCatching { ScreenTime.topApps(c, 4) }.getOrDefault(emptyList()) else emptyList()
             views.setTextViewText(
                 R.id.title,
@@ -80,7 +85,7 @@ class MostUsedWidget : AppWidgetProvider() {
                     else -> "most used today"
                 }
             )
-            val style = Prefs(c).iconStyle
+            val style = Pro.iconStyle(c, Prefs(c))
             val size = (44 * c.resources.displayMetrics.density).toInt()
             for (i in SLOTS.indices) {
                 val entry = top.getOrNull(i)
@@ -137,7 +142,7 @@ object Limits {
     /** True once today's use has passed the limit plus any extra minutes taken. */
     fun reached(c: Context, prefs: Prefs, pkg: String): Boolean {
         val limit = prefs.limit(pkg)
-        if (limit == 0 || !ScreenTime.hasAccess(c)) return false
+        if (limit == 0 || !Pro.unlocked(c) || !ScreenTime.hasAccess(c)) return false
         val usedMs = runCatching { ScreenTime.perApp(c)[pkg] ?: 0L }.getOrDefault(0L)
         return usedMs >= (limit + prefs.bonus(pkg)) * 60_000L
     }

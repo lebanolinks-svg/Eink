@@ -11,8 +11,8 @@ android {
         applicationId = "app.inkphone"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 11
+        versionName = "2.0"
     }
 
     // A fixed test key kept in the repo so every build (local or CI) installs
@@ -52,6 +52,9 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    buildFeatures {
+        buildConfig = true
+    }
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
@@ -61,6 +64,8 @@ android {
 }
 
 dependencies {
+    // One-time unlock purchase through Google Play.
+    implementation("com.android.billingclient:billing:8.3.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
 }

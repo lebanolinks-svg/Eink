@@ -91,7 +91,8 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
-        iconStyle = prefs.iconStyle
+        Pro.touch(this)
+        iconStyle = Pro.iconStyle(this, prefs)
         rebuildUi()
         registerReceiver(packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -122,11 +123,11 @@ class HomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (prefs.iconStyle != iconStyle) {
-            iconStyle = prefs.iconStyle
+        if (Pro.iconStyle(this, prefs) != iconStyle) {
+            iconStyle = Pro.iconStyle(this, prefs)
             icons.evictAll()
         }
-        if (prefs.homeLayout != layout) rebuildUi()
+        if (layoutKey() != layout) rebuildUi()
         forgetRemovedWidgets()
         refresh()
         updateUsage()
@@ -157,8 +158,11 @@ class HomeActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
+    /** Home layout choices plus whether the extras are unlocked; the page is rebuilt when either changes. */
+    private fun layoutKey() = prefs.homeLayout + Pro.unlocked(this)
+
     private fun rebuildUi() {
-        layout = prefs.homeLayout
+        layout = layoutKey()
         columns = prefs.columns.coerceIn(3, 6)
         search = null; screenTime = null; greyHint = null; greyButton = null; mostUsed = null
         setContentView(buildUi())
@@ -248,7 +252,21 @@ class HomeActivity : Activity() {
         }
         root.addView(greyHint)
 
-        if (prefs.showMostUsed) {
+        val pro = Pro.unlocked(this)
+        if (!pro) {
+            root.addView(TextView(this).apply {
+                text = "Your free week is over. Doodle icons, app limits and widgets are locked. Tap to unlock for good."
+                typeface = serif
+                setTextColor(getColor(R.color.paper))
+                setBackgroundColor(ink)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                setOnClickListener { openSettings() }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(4)
+            })
+        }
+        if (prefs.showMostUsed && pro) {
             mostUsed = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 visibility = View.GONE
@@ -261,7 +279,7 @@ class HomeActivity : Activity() {
             })
         }
 
-        addWidgets(root)
+        if (pro) addWidgets(root)
 
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL

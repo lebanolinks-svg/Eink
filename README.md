@@ -16,7 +16,9 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 
 Android refuses taps on sign-in, payment, install and permission screens while any app draws over them. The paper wash therefore removes itself whenever Google sign-in, the Play Store, Settings, or an app that looks like a bank, wallet or authenticator is in front, and its notification has a pause button for anything it misses.
 
-The app uses no accessibility service, reads no screen content and has no internet permission.
+**Pricing.** Free to install. Everything is open for a 7-day trial; after that the home screen and Master grey stay free, and a one-time in-app purchase (`inkphone_unlock`) unlocks doodle and grey icons, app limits, widgets and the paper wash. Debug builds are always unlocked.
+
+The app uses no accessibility service, reads no screen content and has no servers. The internet permission comes from the Google Play Billing library; InkPhone's own code makes no network calls.
 
 ## Install
 

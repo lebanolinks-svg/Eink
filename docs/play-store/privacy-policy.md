@@ -6,7 +6,7 @@ InkPhone is an Android app that gives a phone a calmer, e-ink style look and hel
 
 ## The short version
 
-InkPhone does not collect, store on any server, share or sell any personal data. The app has no internet permission, so it cannot send anything off your phone.
+InkPhone does not collect, store on any server, share or sell any personal data. InkPhone has no servers and no accounts. The only part of the app that talks to the internet is Google Play's own billing component, used for the one-time unlock purchase.
 
 ## What the app reads on your phone, and why
 
@@ -18,7 +18,14 @@ Everything below is read and used only on your device.
 | App usage time (Android "usage access", only if you allow it) | To show today's screen time and most used apps, to enforce the daily app limits you set, and to know which app is in front so the paper wash can step aside | Stays on your phone |
 | Your InkPhone settings (pinned and hidden apps, limits, home screen layout) | To remember your choices | Stored in the app's private storage on your phone |
 
+## Purchases
+
+The one-time unlock is sold through Google Play. The payment is handled entirely by Google under Google's privacy policy; InkPhone never sees your card or payment details. InkPhone only learns from Google Play whether the unlock has been bought on your account, and stores that as a yes/no on your phone. Google's billing component may send technical diagnostics to Google.
+
 ## Permissions
+
+- **Internet and network state**: added by Google Play's billing component for purchases. InkPhone's own code does not use the internet.
+- **Billing**: to offer the one-time unlock through Google Play.
 
 - **Usage access**: screen time, most used apps and app limits. Optional.
 - **Display over other apps**: the optional paper wash and the "time's up" page shown over an app whose limit has run out. Optional.

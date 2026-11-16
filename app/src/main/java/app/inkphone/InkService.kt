@@ -91,10 +91,11 @@ class InkService : Service() {
             }
             val now = SystemClock.uptimeMillis()
             val pkg = currentPkg
-            val limit = if (pkg != null && pkg != packageName) prefs.limit(pkg) else 0
+            val pro = Pro.unlocked(this@InkService)
+            val limit = if (pro && pkg != null && pkg != packageName) prefs.limit(pkg) else 0
             val over = limit > 0 && baseUsedMs + (now - sinceMs) >= (limit + prefs.bonus(pkg!!)) * 60_000L
             setLocked(if (over) pkg else null)
-            val show = prefs.layerOn && !over && !sensitive && now >= pausedUntil
+            val show = pro && prefs.layerOn && !over && !sensitive && now >= pausedUntil
             setAttached(show)
             if (show && changed && prefs.flash) flash()
             handler.postDelayed(this, POLL_MS)

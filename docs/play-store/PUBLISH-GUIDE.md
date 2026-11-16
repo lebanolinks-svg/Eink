@@ -8,7 +8,7 @@ Google changes the wording of its screens from time to time. If a button is name
 
 | File | Used in step |
 |---|---|
-| `InkPhone-1.9-playstore.aab` (sent separately, not in the repo) | 5 |
+| `InkPhone-2.0-playstore.aab` (sent separately, not in the repo) | 5 |
 | `inkphone-upload-key.jks` and its password (sent separately) | Keep safe; needed for every future update |
 | `listing.md` | 3, 4 |
 | `privacy-policy.md` | 4 |
@@ -28,7 +28,7 @@ Google changes the wording of its screens from time to time. If a button is name
 
 1. In Play Console press **Create app**.
 2. App name: `InkPhone: E-Ink Look & Limits`
-3. Default language: English. App or game: **App**. Free or paid: **Free**.
+3. Default language: English. App or game: **App**. Free or paid: **Free**. (The 0.99 is an in-app purchase, set up in step 5b. A free app can sell in-app purchases; a paid app cannot offer a free week.)
 4. Tick the declarations and press **Create app**.
 
 ## Step 3: Store listing
@@ -67,9 +67,20 @@ Open **Policy and programs → App content** and work down the list. The answers
 1. Open **Test and release → Testing → Closed testing** (personal account) or **Production** (organisation account).
 2. Press **Create new release**.
 3. When asked about app signing, accept **Play App Signing** (the default).
-4. Upload `InkPhone-1.9-playstore.aab`.
-5. Release name: `1.9`. Release notes: `First release.`
+4. Upload `InkPhone-2.0-playstore.aab`.
+5. Release name: `2.0`. Release notes: `First release.`
 6. Press **Next**, then **Save**. Fix anything Play Console lists as an error; warnings can usually be left.
+
+## Step 5b: Set up the 0.99 unlock
+
+Play Console only lets you create in-app products after a build that contains billing has been uploaded (step 5), and after a payments profile exists.
+
+1. Open **Settings → Payments profile** and create a merchant (payments) profile: business details and the bank account Google pays into. **Check first that Google supports merchant payouts in your country**; search "Google Play supported locations for merchant registration". If your country is not on that list, you cannot sell on Google Play from an account registered there, and this needs solving before anything else.
+2. Open **Monetize with Play → Products → In-app products** (on newer consoles: **One-time products**) and press **Create product**.
+3. Product ID: `inkphone_unlock`. It must be exactly this; it cannot be changed later.
+4. Name, description and price: copy from the "Pricing" section of `listing.md`. Price 0.99 USD.
+5. Save and **Activate** the product.
+6. To try a purchase without paying: **Settings → License testing**, add your own Google account's email. Purchases from that account on a build installed from Google Play are then free test purchases.
 
 ## Step 6: Testing (personal accounts only)
 

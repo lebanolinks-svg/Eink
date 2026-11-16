@@ -36,13 +36,26 @@ Give any app a number of minutes per day. When they run out, InkPhone covers the
 SCREEN TIME AT A GLANCE
 See how long you have been on the phone today, and which apps took the time, on the home screen or as widgets on any launcher.
 
+FREE FOR A WEEK, THEN 0.99 ONCE
+Everything is open for 7 days. After that, the home screen and Master grey stay free, and a single one-time purchase unlocks doodle icons, app limits, widgets and the paper wash for good. No subscription.
+
 PRIVATE BY DESIGN
-InkPhone has no internet permission. It cannot send anything off your phone. No account, no ads, no tracking.
+No account, no ads, no tracking. InkPhone has no servers; nothing about how you use your phone leaves it. The only internet use is Google Play's own purchase component.
 
 GOOD TO KNOW
 • Android does not allow any app to switch the system greyscale setting by itself. InkPhone takes you straight to the right screen; you flip the switch once.
 • App limits and screen time need Android's "usage access" permission. Locking an app from the inside also needs "display over other apps".
 • InkPhone changes how your phone looks and is used. It does not change the screen hardware.
+
+## Pricing
+
+- App price: **Free** (with in-app purchases)
+- In-app product (one-time, "managed product"):
+  - Product ID: `inkphone_unlock` (must match exactly)
+  - Name: `Unlock InkPhone`
+  - Description: `One-time purchase. Unlocks doodle icons, app limits, widgets and the paper wash for good.`
+  - Price: 0.99 USD (let Play Console convert for other countries)
+- The 7-day free trial is handled inside the app; nothing to set up for it in Play Console.
 
 ## Category
 
@@ -64,7 +77,7 @@ Privacy policy URL: [URL WHERE privacy-policy.md IS HOSTED]
 
 ## Data safety
 
-- Does your app collect or share any of the required user data types? **No**
+- Does your app collect or share any of the required user data types? **No**. Purchases made through Google Play Billing are handled by Google and, under Google's Data safety guidance, do not need to be declared by the app. Confirm this wording against the form's own help text when you fill it in.
 - Is all user data encrypted in transit? Not applicable (no data leaves the device)
 - Do you provide a way for users to request data deletion? Not applicable (no data collected)
 
@@ -97,6 +110,7 @@ Video to record (about 30 seconds): open InkPhone menu → App limits → add a 
 | PACKAGE_USAGE_STATS | Core feature: screen-time display, most-used apps, and enforcing daily app limits the user sets. Data stays on the device. |
 | SYSTEM_ALERT_WINDOW | Shows the "time's up" page over an app whose user-set limit has run out, and the optional paper wash. |
 | RECEIVE_BOOT_COMPLETED | Restarts app limits after a reboot so limits cannot be bypassed by restarting the phone. |
+| INTERNET, ACCESS_NETWORK_STATE, BILLING | Added by the Google Play Billing library for the one-time unlock purchase. The app has no other network use. |
 | WRITE_SECURE_SETTINGS | Cannot be granted through Play; only works if the user grants it over ADB, to let the app toggle greyscale. |
 
 In-app disclosure: before sending the user to grant usage access, the app already explains what it is used for. Reviewers check for this.

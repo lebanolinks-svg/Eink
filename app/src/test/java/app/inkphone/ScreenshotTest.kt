@@ -41,3 +41,34 @@ class ScreenshotTest {
         shoot(activity, "settings")
     }
 }
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class TrialTest {
+    private val day = 24 * 60 * 60 * 1000L
+
+    private fun daysLeftWhenStarted(daysAgo: Double): Int {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        Prefs(context).sp.edit().putLong("trial_start", System.currentTimeMillis() - (daysAgo * day).toLong()).commit()
+        return Pro.trialDaysLeft(context)
+    }
+
+    @Test
+    fun trialCountsDownAndEnds() {
+        org.junit.Assert.assertEquals(7, daysLeftWhenStarted(0.0))
+        org.junit.Assert.assertEquals(1, daysLeftWhenStarted(6.5))
+        org.junit.Assert.assertEquals(0, daysLeftWhenStarted(7.01))
+        org.junit.Assert.assertEquals(0, daysLeftWhenStarted(30.0))
+        // a clock set far back must not hand out a longer trial
+        org.junit.Assert.assertEquals(0, daysLeftWhenStarted(-3.0))
+    }
+
+    @Test
+    fun purchaseOutlivesTheTrial() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        daysLeftWhenStarted(30.0)
+        Pro.setOwned(context, true)
+        org.junit.Assert.assertTrue(Pro.owned(context))
+        org.junit.Assert.assertEquals(Prefs(context).iconStyle, Pro.iconStyle(context, Prefs(context)))
+    }
+}

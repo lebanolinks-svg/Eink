@@ -41,6 +41,7 @@ class SettingsActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var page: LinearLayout
     private var showAdvanced = false
+    private var billing: Billing? = null
     private var samples: List<Sample> = emptyList()
     private var realSamplesLoaded = false
     private val io = Executors.newSingleThreadExecutor()
@@ -54,6 +55,8 @@ class SettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        Pro.touch(this)
+        billing = runCatching { Billing(this) { rebuild() }.also { it.start() } }.getOrNull()
         samples = builtInSamples()
         page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -75,6 +78,7 @@ class SettingsActivity : Activity() {
     }
 
     override fun onDestroy() {
+        billing?.stop()
         io.shutdownNow()
         super.onDestroy()
     }
@@ -82,6 +86,7 @@ class SettingsActivity : Activity() {
     // Rebuilt on every return so each card shows what was just changed in Android's settings.
     override fun onResume() {
         super.onResume()
+        billing?.restore()
         rebuild()
     }
 
@@ -90,6 +95,7 @@ class SettingsActivity : Activity() {
         page.addView(script("InkPhone", 54f))
         page.addView(script("a quieter phone, drawn in ink", 24f).apply { alpha = 0.75f })
         hero()
+        unlockCard()
         page.addView(script("choose your ink", 30f), spaced(22))
         greyCard()
         homeCard()
@@ -181,6 +187,46 @@ class SettingsActivity : Activity() {
                 IconStyler.render(icon, IconStyler.INK, size, i),
                 IconStyler.render(icon, IconStyler.DOODLE, size, i * 17 + 3),
             )
+        }
+    }
+
+    // ---- trial and unlock ---------------------------------------------------------
+
+    private fun unlockCard() {
+        val price = billing?.price ?: "\$0.99"
+        val daysLeft = Pro.trialDaysLeft(this)
+        when {
+            Pro.owned(this) -> page.addView(note("✓  InkPhone is unlocked for good. Thank you."), spaced(10))
+            BuildConfig.DEBUG -> page.addView(note("Test build: everything is unlocked."), spaced(10))
+            else -> {
+                val card = if (daysLeft > 0) {
+                    card(
+                        R.drawable.ic_unlock, "Free week",
+                        "$daysLeft day${if (daysLeft == 1) "" else "s"} left with everything open. After that, doodle icons, app limits, " +
+                            "widgets and the paper wash lock. The home screen and Master grey stay free.",
+                        null,
+                    )
+                } else {
+                    card(
+                        R.drawable.ic_unlock, "Your free week is over",
+                        "Doodle icons, app limits, widgets and the paper wash are locked. The home screen and Master grey still work.",
+                        null,
+                    )
+                }
+                card.addView(button("unlock for good · $price", primary = true) {
+                    if (billing?.buy() != true) {
+                        Toast.makeText(
+                            this, "Google Play is not ready. Check your connection and that InkPhone was installed from Google Play.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                })
+                card.addView(note("One payment, once. No subscription."))
+                card.addView(button("I already paid: restore", primary = false) {
+                    billing?.restore()
+                    Toast.makeText(this, "Checking with Google Play…", Toast.LENGTH_SHORT).show()
+                })
+            }
         }
     }
 
