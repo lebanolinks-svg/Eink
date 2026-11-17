@@ -56,7 +56,7 @@ Open **Policy and programs → App content** and work down the list. The answers
 | Government app, financial features, health | No |
 | Foreground service permissions | Choose "Other / special use", paste the description from `listing.md`, and add a link to the short video described there |
 
-**Privacy policy address.** Before pasting, put your contact email into `privacy-policy.md` in place of `[CONTACT EMAIL]`. Once this work is merged into the `main` branch, the address is:
+**Privacy policy address.** The contact email (info@oxarrow.com) is already in `privacy-policy.md`. Once this work is merged into the `main` branch, the address is:
 
 `https://github.com/lebanolinks-svg/Eink/blob/main/docs/play-store/privacy-policy.md`
 

@@ -67,7 +67,7 @@ Digital wellbeing, launcher, screen time, minimalist
 
 ## Contact details
 
-Email: [CONTACT EMAIL]
+Email: info@oxarrow.com
 Website: [OPTIONAL]
 Privacy policy URL: [URL WHERE privacy-policy.md IS HOSTED]
 
