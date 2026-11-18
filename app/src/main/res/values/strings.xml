@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">InkPhone</string>
+    <string name="home_name">InkPhone Home</string>
+    <string name="widget_screen_time">Screen time</string>
+    <string name="widget_screen_time_desc">How long you have been on the phone today</string>
+    <string name="widget_most_used">Most used apps</string>
+    <string name="widget_most_used_desc">The four apps you used most today</string>
+</resources>
