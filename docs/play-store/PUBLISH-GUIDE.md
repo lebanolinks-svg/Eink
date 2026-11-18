@@ -8,7 +8,7 @@ Google changes the wording of its screens from time to time. If a button is name
 
 | File | Used in step |
 |---|---|
-| `InkPhone-2.0-playstore.aab` (sent separately, not in the repo) | 5 |
+| `InkPhone-2.1-playstore.aab` (sent separately, not in the repo) | 5 |
 | `inkphone-upload-key.jks` and its password (sent separately) | Keep safe; needed for every future update |
 | `listing.md` | 3, 4 |
 | `privacy-policy.md` | 4 |
@@ -67,8 +67,8 @@ Open **Policy and programs → App content** and work down the list. The answers
 1. Open **Test and release → Testing → Closed testing** (personal account) or **Production** (organisation account).
 2. Press **Create new release**.
 3. When asked about app signing, accept **Play App Signing** (the default).
-4. Upload `InkPhone-2.0-playstore.aab`.
-5. Release name: `2.0`. Release notes: `First release.`
+4. Upload `InkPhone-2.1-playstore.aab`.
+5. Release name: `2.1`. Release notes: `First release.`
 6. Press **Next**, then **Save**. Fix anything Play Console lists as an error; warnings can usually be left.
 
 ## Step 5b: Set up the 0.99 unlock

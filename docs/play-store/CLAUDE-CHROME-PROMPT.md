@@ -4,7 +4,7 @@ Before you paste this:
 
 1. Sign in to https://play.google.com/console in Chrome with the Google account that owns (or will own) the developer account.
 2. Have these files in one folder on the computer, because the browser assistant cannot pick files from your disk:
-   `InkPhone-2.0-playstore.aab`, `icon-512.png`, `feature-graphic.png`, `screenshot-1-menu.png`, `screenshot-2-launcher.png`, plus any screenshots you took on your phone.
+   `InkPhone-2.1-playstore.aab`, `icon-512.png`, `feature-graphic.png`, `screenshot-1-menu.png`, `screenshot-2-launcher.png`, plus any screenshots you took on your phone.
 3. Copy everything below the line into Claude in Chrome.
 
 ---
@@ -112,6 +112,7 @@ GOOD TO KNOW
 • Android does not allow any app to switch the system greyscale setting by itself. InkPhone takes you straight to the right screen; you flip the switch once.
 • App limits and screen time need Android's "usage access" permission. Locking an app from the inside also needs "display over other apps".
 • InkPhone changes how your phone looks and is used. It does not change the screen hardware.
+• Greyscale is an Android setting: it stays on after InkPhone is removed until you switch it off. The app shows how under Advanced → "put my phone back".
 ```
 
 Graphics (ask me to upload each one, one at a time):
@@ -160,8 +161,8 @@ If Play Console asks me to justify a permission, use:
 2. If asked to choose countries/regions for the track, select all available countries.
 3. Press "Create new release".
 4. If asked about app signing, keep "Play App Signing" (Google-managed key). If this is presented as an agreement to accept, stop and ask me to accept it.
-5. Ask me to upload `InkPhone-2.0-playstore.aab` and wait for "done". Wait until processing finishes.
-6. Release name: `2.0`
+5. Ask me to upload `InkPhone-2.1-playstore.aab` and wait for "done". Wait until processing finishes.
+6. Release name: `2.1`
 7. Release notes (en-US): `First release of InkPhone.`
 8. Press "Next" and then "Save". Do **not** press "Send for review" or "Start rollout" yet.
 9. Tell me every error and warning shown. Errors must be solved; for warnings, tell me the text and continue.

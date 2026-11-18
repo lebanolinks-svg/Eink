@@ -449,10 +449,7 @@ class HomeActivity : Activity() {
     private fun toggleGrey() {
         val grey = SystemInk.grayscaleState(this) == true
         if (SystemInk.canWrite(this)) {
-            runCatching {
-                SystemInk.setGrayscale(this, !grey)
-                SystemInk.setAnimationsOff(this, !grey)
-            }
+            runCatching { SystemInk.setGrayscale(this, !grey) }
             updateGrey()
         } else {
             Toast.makeText(

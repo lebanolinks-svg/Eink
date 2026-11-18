@@ -46,6 +46,7 @@ GOOD TO KNOW
 • Android does not allow any app to switch the system greyscale setting by itself. InkPhone takes you straight to the right screen; you flip the switch once.
 • App limits and screen time need Android's "usage access" permission. Locking an app from the inside also needs "display over other apps".
 • InkPhone changes how your phone looks and is used. It does not change the screen hardware.
+• Greyscale is an Android setting: it stays on after InkPhone is removed until you switch it off. The app shows how under Advanced → "put my phone back".
 
 ## Pricing
 

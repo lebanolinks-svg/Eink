@@ -234,18 +234,14 @@ class SettingsActivity : Activity() {
 
     private fun greyCard() {
         val grey = SystemInk.grayscaleState(this) == true
-        val still = SystemInk.animationsOff(this)
         val card = card(R.drawable.ic_grey, "Master grey", "The whole phone in black and white. Every app, every video.", grey)
 
         if (SystemInk.canWrite(this)) {
             card.addView(button(if (grey) "bring colour back" else "turn the phone grey", primary = !grey) {
-                guarded {
-                    SystemInk.setGrayscale(this, !grey)
-                    SystemInk.setAnimationsOff(this, !grey)
-                }
+                guarded { SystemInk.setGrayscale(this, !grey) }
                 rebuild()
             })
-            card.addView(note("One tap. Animations switch off and on with it."))
+            card.addView(note("One tap."))
             return
         }
 
@@ -262,18 +258,44 @@ class SettingsActivity : Activity() {
             card.addView(button("turn grey off", primary = true) { openColourSettings() })
             card.addView(note("Switch colour correction off on the screen that opens. The ◐ button on the home screen does the same."))
         }
+        card.addView(note("This is an Android setting. It stays as you leave it, even if InkPhone is removed."))
+    }
 
+    /** Optional and off the main path: it also freezes loading spinners, which reads as a stuck phone. */
+    private fun animationsSection(card: LinearLayout) {
+        val still = SystemInk.animationsOff(this)
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        val where = if (samsung) "Accessibility → Vision enhancements → Reduce animations" else "Accessibility → Colour and motion → Remove animations"
         card.addView(divider())
-        if (still) {
-            card.addView(body("✓  Animations are off too"))
+        card.addView(script("stop animations (optional)", 23f))
+        card.addView(note(
+            "Removes screen transitions for a stiller, more e-ink feel. Side effect: loading spinners stop turning in every app " +
+                "and show as still dots or arrows, so the phone can look stuck while it is working."
+        ))
+        if (SystemInk.canWrite(this)) {
+            card.addView(switch("Animations off", still) { off -> guarded { SystemInk.setAnimationsOff(this, off) } })
         } else {
-            card.addView(script("and stop the animations", 23f))
-            card.addView(note(
-                if (samsung) "In Accessibility, open Vision enhancements and turn on Reduce animations."
-                else "In Accessibility, open Colour and motion and turn on Remove animations."
-            ))
+            card.addView(note((if (still) "✓  Animations are off now. To bring them back: " else "To turn them off: ") + where + "."))
             card.addView(button("open accessibility", primary = false) { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) })
         }
+    }
+
+    /** How to put the phone back exactly as it was; these settings outlive the app. */
+    private fun undoSection(card: LinearLayout) {
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        val vision = if (samsung) "Accessibility → Vision enhancements" else "Accessibility → Colour and motion"
+        card.addView(divider())
+        card.addView(script("put my phone back", 23f))
+        card.addView(note(
+            "Greyscale and animations are Android settings. Removing InkPhone does not change them back, so undo them here first."
+        ))
+        card.addView(steps(
+            "Colour: $vision → Colour correction → off",
+            "Animations: $vision → ${if (samsung) "Reduce animations" else "Remove animations"} → off",
+            "Home screen: choose your old home app",
+        ))
+        card.addView(button("open accessibility", primary = false) { open(Settings.ACTION_ACCESSIBILITY_SETTINGS) })
+        card.addView(button("choose home app", primary = false) { open(Settings.ACTION_HOME_SETTINGS) })
     }
 
     // ---- 2 · E-ink launcher --------------------------------------------------------
@@ -463,7 +485,7 @@ class SettingsActivity : Activity() {
     // ---- 4 · Advanced ----------------------------------------------------------------
 
     private fun advancedCard() {
-        val card = card(R.drawable.ic_advanced, "Advanced", "Paper wash, screen time and the debug shortcut.", null)
+        val card = card(R.drawable.ic_advanced, "Advanced", "Paper wash, animations, screen time, and how to put the phone back.", null)
         card.addView(button(if (showAdvanced) "close" else "open", primary = false) {
             showAdvanced = !showAdvanced
             rebuild()
@@ -523,6 +545,8 @@ class SettingsActivity : Activity() {
             card.addView(button("allow usage access", primary = false) { open(Settings.ACTION_USAGE_ACCESS_SETTINGS) })
         }
 
+        animationsSection(card)
+
         // One-tap grey
         card.addView(divider())
         card.addView(script("one-tap master grey (debug)", 23f))
@@ -545,6 +569,8 @@ class SettingsActivity : Activity() {
                 Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
             })
         }
+
+        undoSection(card)
 
         if (prefs.hidden.isNotEmpty()) {
             card.addView(divider())

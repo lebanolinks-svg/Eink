@@ -6,7 +6,7 @@ An Android app that makes a normal phone look and move like an e-ink device, to 
 
 | Feature | Effect | Needs |
 |---|---|---|
-| **Master grey** | The whole phone in black and white, with animations removed. A ◐ button on the home screen turns it on and off. | Two switches in Android's Accessibility settings (guided), or one tap after the debug permission |
+| **Master grey** | The whole phone in black and white. A ◐ button on the home screen turns it on and off. | Two switches in Android's Accessibility settings (guided), or one tap after the debug permission |
 | **E-ink launcher** | Paper home screen with an app grid that turns pages like an e-reader. Icons as **Doodle** (each app's real icon redrawn as a pen sketch), **Grey** or **As is**. Long-press an app to pin, hide, limit or open its info. | Set InkPhone as the home app |
 | **Build your home screen** | Switch each block on or off: clock (serif or handwritten), date, screen time, most used apps, search, grey button, app names. Choose 3 to 6 icons per row. | — |
 | **App limits** | Minutes per day for any app. When they run out the app shows a "time's up" page with a way home and a 5-minute extension. | Usage access; "display over other apps" to lock from inside the app |
@@ -19,6 +19,8 @@ Android refuses taps on sign-in, payment, install and permission screens while a
 **Pricing.** Free to install. Everything is open for a 7-day trial; after that the home screen and Master grey stay free, and a one-time in-app purchase (`inkphone_unlock`) unlocks doodle and grey icons, app limits, widgets and the paper wash. Debug builds are always unlocked.
 
 The app uses no accessibility service, reads no screen content and has no servers. The internet permission comes from the Google Play Billing library; InkPhone's own code makes no network calls.
+
+**Settings that outlive the app.** Greyscale and "remove animations" are Android system settings. Uninstalling InkPhone does not revert them; the Advanced card has a "put my phone back" section with the steps. Removing animations is optional and kept in Advanced because it also freezes loading spinners in every app.
 
 ## Install
 
